@@ -23,7 +23,6 @@ import { getItem, setItem } from '../services/storage/asyncStorage';
 const { KioskModule } = NativeModules;
 
 import React, { useEffect, useState } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import { getApi } from '../services/axios/api';
 import DeviceLockScreen from '../screens/DeviceLockScreen';
@@ -128,9 +127,7 @@ const Root = () => {
           setIsLocked(true);
         } else {
           // Fallback check to AsyncStorage for redundant safety
-          const storedStatus = await AsyncStorage.getItem(
-            'vlocker_lock_status',
-          );
+          const storedStatus = await getItem('vlocker_lock_status');
           if (storedStatus === 'LOCKED') {
             setIsLocked(true);
           }
@@ -168,7 +165,7 @@ const Root = () => {
   useEffect(() => {
     const checkPin = async () => {
       try {
-        const pin = await AsyncStorage.getItem('APP_LOCK_PIN');
+        const pin = await getItem('APP_LOCK_PIN');
         if (pin) {
           setInitialRoute('LockScreen');
         } else {
@@ -187,7 +184,7 @@ const Root = () => {
   useEffect(() => {
     const checkPinOnFocus = async () => {
       try {
-        const pin = await AsyncStorage.getItem('APP_LOCK_PIN');
+        const pin = await getItem('APP_LOCK_PIN');
         if (!pin && initialRoute === 'LockScreen') {
           setInitialRoute('Tab');
         } else if (pin && initialRoute === 'Tab') {
@@ -210,11 +207,11 @@ const Root = () => {
         if (event.status === 'LOCKED') {
           console.log('ROOT_JS: Setting isLocked = TRUE');
           setIsLocked(true);
-          await AsyncStorage.setItem('vlocker_lock_status', 'LOCKED');
+          await setItem('vlocker_lock_status', 'LOCKED');
         } else if (event.status === 'UNLOCKED') {
           console.log('ROOT_JS: Setting isLocked = FALSE');
           setIsLocked(false);
-          await AsyncStorage.setItem('vlocker_lock_status', 'UNLOCKED');
+          await setItem('vlocker_lock_status', 'UNLOCKED');
         }
       },
     );
@@ -223,8 +220,8 @@ const Root = () => {
       'SCREEN_OFF',
       async () => {
         // Check if App Lock is enabled
-        const pin = await AsyncStorage.getItem('APP_LOCK_PIN');
-        const lockStatus = await AsyncStorage.getItem('vlocker_lock_status');
+        const pin = await getItem('APP_LOCK_PIN');
+        const lockStatus = await getItem('vlocker_lock_status');
         if (pin && lockStatus !== 'LOCKED') {
           if (navigationRef.isReady()) {
             navigationRef.navigate('LockScreen');
@@ -241,13 +238,11 @@ const Root = () => {
 
         if (nativeStatus === 'LOCKED') {
           setIsLocked(true);
-          await AsyncStorage.setItem('vlocker_lock_status', 'LOCKED');
-          try {
-            await KioskModule.bringAppToFront();
-          } catch (e) {}
-        } else {
-          setIsLocked(false);
-          await AsyncStorage.setItem('vlocker_lock_status', 'UNLOCKED');
+          await setItem('vlocker_lock_status', 'LOCKED');
+          // Native LockService handles enforcement. Removing JS enforcement to prevent flicker/race conditions.
+          // try {
+          //   await KioskModule.bringAppToFront();
+          // } catch (e) {}
         }
       },
     );

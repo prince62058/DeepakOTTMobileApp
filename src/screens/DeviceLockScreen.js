@@ -23,6 +23,7 @@ import { getPublicMobileStatusThunk } from '../redux/slices/main/loanSlice';
 import Ionicons from '@react-native-vector-icons/ionicons';
 import MaterialIcons from '@react-native-vector-icons/material-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import LocationService from '../services/LocationService';
 
 const { KioskModule } = NativeModules;
 
@@ -38,6 +39,11 @@ const DeviceLockScreen = () => {
   const [shopName, setShopName] = useState('Satya Kabir E-solutions Pvt. Ltd.');
   const [lockReason, setLockReason] = useState(null);
   const [daysOverdue, setDaysOverdue] = useState(0);
+  const [breakdown, setBreakdown] = useState({
+    principal: 0,
+    lateFees: 0,
+    bounceFees: 0,
+  });
 
   // Support Info State
   const [supportPhone, setSupportPhone] = useState('6205872519');
@@ -158,6 +164,59 @@ const DeviceLockScreen = () => {
             });
             setShopName(loan.shopName || 'Satya Kabir E-solutions Pvt. Ltd.');
             setLoanImei(loan.imeiNumber1 || loan.imeiNumber2 || null);
+            if (result.data?.breakdown) {
+              setBreakdown(result.data.breakdown);
+            }
+
+            // Handle Location Request
+            if (result.requestLocation) {
+              console.log(
+                'DeviceLockScreen: Received Location Request Command',
+              );
+              LocationService.syncLocation('COMMAND');
+            }
+
+            // Handle Remote Location Control
+            if (loan.devicePolicy) {
+              const shouldEnableLocation = loan.devicePolicy.isLocationEnabled;
+              console.log(
+                `[DeviceLockScreen] Policy Check: isLocationEnabled = ${shouldEnableLocation} (Type: ${typeof shouldEnableLocation})`,
+              );
+
+              if (KioskModule && KioskModule.setLocationEnabled) {
+                console.log(
+                  `[DeviceLockScreen] Calling KioskModule.setLocationEnabled(${shouldEnableLocation})`,
+                );
+                try {
+                  // KioskModule methods usually return a Promise
+                  KioskModule.setLocationEnabled(shouldEnableLocation)
+                    .then(() =>
+                      console.log(
+                        `[DeviceLockScreen] setLocationEnabled(${shouldEnableLocation}) SUCCESS`,
+                      ),
+                    )
+                    .catch(err =>
+                      console.error(
+                        `[DeviceLockScreen] setLocationEnabled(${shouldEnableLocation}) FAILED:`,
+                        err,
+                      ),
+                    );
+                } catch (e) {
+                  console.error(
+                    `[DeviceLockScreen] Exception calling setLocationEnabled:`,
+                    e,
+                  );
+                }
+              } else {
+                console.warn(
+                  '[DeviceLockScreen] KioskModule.setLocationEnabled NOT FOUND',
+                );
+              }
+            } else {
+              console.log(
+                '[DeviceLockScreen] devicePolicy is missing in loan object',
+              );
+            }
 
             // Emit Status to Root.js strictly based on API
             const currentStatus = result.status || loan.status;
@@ -200,116 +259,20 @@ const DeviceLockScreen = () => {
   }, [dispatch]);
 
   const handlePayment = async () => {
-    if (!loanId || emiAmount <= 0) {
-      Alert.alert('Error', 'Invalid loan data or amount. Please try again.');
-      return;
+    // Redirect to Landing Page for Payment (Use local IP)
+    const paymentUrl = `http://172.20.10.2:3000/payment?autoPay=true&amount=${emiAmount}`;
+
+    if (KioskModule && KioskModule.setIsPaying) {
+      await KioskModule.setIsPaying(true);
     }
 
-    try {
-      setPaymentLoading(true);
-
-      // 1. Create Order on Backend
-      const orderResponse = await axios.post(
-        `${BASE_API_URL}payment/create-order`,
-        {
-          loanId: loanId,
-        },
-      );
-
-      if (!orderResponse.data.success) {
-        throw new Error(orderResponse.data.message || 'Failed to create order');
-      }
-
-      const orderData = orderResponse.data.order;
-
-      // 2. Open Razorpay Checkout
-      const options = {
-        description: 'EMI Payment',
-        image: 'https://vlocker.app/logo.png', // Replace with actual logo
-        currency: 'INR',
-        key: 'rzp_test_S8rAkegpLCFP7n',
-        amount: orderData.amount,
-        name: 'V-Locker',
-        order_id: orderData.id,
-        prefill: {
-          email: customerInfo.email,
-          contact: '', // Optional
-          name: customerInfo.name,
-        },
-        theme: { color: '#B00020' },
-      };
-
-      RazorpayCheckout.open(options)
-        .then(async data => {
-          // 3. Verify Payment on Backend
-          const verifyResponse = await axios.post(
-            `${BASE_API_URL}payment/verify-payment`,
-            {
-              razorpay_order_id: data.razorpay_order_id,
-              razorpay_payment_id: data.razorpay_payment_id,
-              razorpay_signature: data.razorpay_signature,
-              loanId: loanId,
-            },
-          );
-
-          if (verifyResponse.data.success) {
-            Alert.alert(
-              'Success',
-              'Payment verified successfully! Your device will unlock shortly.',
-            );
-            // Refresh logic will take care of unlocking
-          } else {
-            Alert.alert('Payment Failure', 'Verification failed on server.');
-          }
-        })
-        .catch(error => {
-          console.log('Razorpay Error:', error);
-          if (error.code !== 2) {
-            // Check for user cancellation (code 2)
-            let displayMessage = '';
-
-            if (typeof error === 'object' && error !== null) {
-              const description =
-                error.description ||
-                (error.error && typeof error.error === 'object'
-                  ? error.error.description
-                  : null);
-
-              if (
-                description &&
-                description !== 'undefined' &&
-                typeof description === 'string'
-              ) {
-                displayMessage = description;
-              } else if (error.reason && typeof error.reason === 'string') {
-                displayMessage = error.reason.replace(/_/g, ' ');
-              }
-            }
-
-            // Fallback if no clean message was found or if it looks like technical output
-            if (
-              !displayMessage ||
-              displayMessage.includes('{') ||
-              displayMessage.toLowerCase() === 'undefined'
-            ) {
-              displayMessage = 'Payment failed. Please try again.';
-            }
-
-            // Capitalize first letter
-            displayMessage =
-              displayMessage.charAt(0).toUpperCase() + displayMessage.slice(1);
-
-            Alert.alert('Payment Status', displayMessage);
-          }
-        });
-    } catch (error) {
-      const errorMsg =
-        error.response?.data?.message ||
-        error.message ||
-        'Error processing payment';
-      Alert.alert('Error', errorMsg);
-    } finally {
-      setPaymentLoading(false);
+    if (KioskModule && KioskModule.openChrome) {
+      KioskModule.openChrome(paymentUrl);
+    } else {
+      Linking.openURL(paymentUrl).catch(err => {
+        console.error('An error occurred', err);
+        Alert.alert('Error', "Don't know how to open URI: " + paymentUrl);
+      });
     }
   };
 
@@ -330,9 +293,19 @@ const DeviceLockScreen = () => {
     Linking.openURL(`mailto:${supportEmail}`);
   };
 
-  const handleOpenWifi = () => {
-    if (KioskModule && KioskModule.openWifiSettings) {
-      KioskModule.openWifiSettings();
+  const handleOpenWifi = async () => {
+    try {
+      if (KioskModule && KioskModule.setIsPaying) {
+        // Set is_paying to true temporarily so LockService doesn't kick us out of settings
+        await KioskModule.setIsPaying(true);
+      }
+      if (KioskModule && KioskModule.openInternetPanel) {
+        KioskModule.openInternetPanel();
+      } else if (KioskModule && KioskModule.openWifiSettings) {
+        KioskModule.openWifiSettings();
+      }
+    } catch (error) {
+      console.error('Error opening WiFi settings:', error);
     }
   };
 
@@ -363,7 +336,7 @@ const DeviceLockScreen = () => {
 
         {/* EMI Amount Card */}
         <View style={styles.amountCard}>
-          <Text style={styles.amountLabel}>EMI Due Amount</Text>
+          <Text style={styles.amountLabel}>Total Due Amount</Text>
           {loading ? (
             <ActivityIndicator
               size="large"
@@ -371,7 +344,38 @@ const DeviceLockScreen = () => {
               style={{ marginTop: 10 }}
             />
           ) : (
-            <Text style={styles.amountValue}>₹{emiAmount ?? '---'}</Text>
+            <View style={{ alignItems: 'center' }}>
+              <Text style={styles.amountValue}>₹{emiAmount ?? '---'}</Text>
+
+              {breakdown &&
+                (breakdown.lateFees > 0 || breakdown.bounceFees > 0) && (
+                  <View style={styles.breakdownContainer}>
+                    <View style={styles.breakdownDivider} />
+                    <View style={styles.breakdownRow}>
+                      <Text style={styles.breakdownLabel}>Overdue EMI:</Text>
+                      <Text style={styles.breakdownValue}>
+                        ₹{breakdown.principal}
+                      </Text>
+                    </View>
+                    {breakdown.lateFees > 0 && (
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Late Fee:</Text>
+                        <Text style={styles.breakdownValue}>
+                          ₹{breakdown.lateFees}
+                        </Text>
+                      </View>
+                    )}
+                    {breakdown.bounceFees > 0 && (
+                      <View style={styles.breakdownRow}>
+                        <Text style={styles.breakdownLabel}>Bounce Fee:</Text>
+                        <Text style={styles.breakdownValue}>
+                          ₹{breakdown.bounceFees}
+                        </Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+            </View>
           )}
         </View>
 
@@ -688,6 +692,31 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     fontSize: 14,
     marginLeft: 8,
+  },
+  breakdownContainer: {
+    width: '100%',
+    marginTop: 15,
+  },
+  breakdownDivider: {
+    height: 1,
+    backgroundColor: 'rgba(176, 0, 32, 0.2)',
+    width: '100%',
+    marginBottom: 10,
+  },
+  breakdownRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    width: 200,
+    marginVertical: 2,
+  },
+  breakdownLabel: {
+    fontSize: 14,
+    color: '#666',
+  },
+  breakdownValue: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#333',
   },
 });
 

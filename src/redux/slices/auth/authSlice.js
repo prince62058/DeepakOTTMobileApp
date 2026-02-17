@@ -57,6 +57,9 @@ export const verifyOtp = createAsyncThunk(
       console.log('Verify OTP Response:', response.data);
       const { token, ...userData } = response?.data?.data;
       await setSecureItem('USER_TOKEN', token);
+      if (userData.loanId) {
+        await setSecureItem('LOAN_ID', userData.loanId);
+      }
       return { token, userData };
     } catch (error) {
       // showToast(error);
@@ -73,6 +76,9 @@ export const loginUser = createAsyncThunk(
       console.log('Login API Response:', response.data);
       const { token, ...userData } = response?.data?.data;
       await setSecureItem('USER_TOKEN', token);
+      if (userData.loanId) {
+        await setSecureItem('LOAN_ID', userData.loanId);
+      }
       return { token, userData };
     } catch (error) {
       // showToast(error);
@@ -185,6 +191,7 @@ export const logoutThunk = createAsyncThunk(
   async (_, { rejectWithValue }) => {
     try {
       await deleteSecureItem('USER_TOKEN');
+      await deleteSecureItem('LOAN_ID');
       // Keep vlocker_loan_imei for persistent locking after logout
       return true;
     } catch (error) {

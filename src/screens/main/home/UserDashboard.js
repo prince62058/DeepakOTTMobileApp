@@ -267,12 +267,42 @@ const UserDashboard = ({ navigation }) => {
                     : 'N/A'}
                 </MainText>
               </View>
-              <View style={styles.row}>
-                <MainText style={styles.label}>Amount:</MainText>
-                <MainText style={styles.value}>
-                  {`₹ ${homeData?.amount ? homeData.amount : '0'}`}
-                </MainText>
-              </View>
+              {(() => {
+                const isOverdue =
+                  homeData?.status === 'Overdue' ||
+                  homeData?.status === 'LOCKED';
+                const baseAmount = Number(homeData?.amount || 0);
+                const lateFee = Number(homeData?.lateFee || 0);
+                const bounceFee = Number(homeData?.bounceFee || 0);
+                const totalDisplayAmount = isOverdue
+                  ? baseAmount + lateFee + bounceFee
+                  : baseAmount;
+
+                return (
+                  <View style={styles.row}>
+                    <MainText style={styles.label}>Amount:</MainText>
+                    <View
+                      style={{ flexDirection: 'row', alignItems: 'center' }}
+                    >
+                      <MainText style={styles.value}>
+                        {`₹ ${totalDisplayAmount}`}
+                      </MainText>
+                      {isOverdue && (lateFee > 0 || bounceFee > 0) && (
+                        <MainText
+                          style={{
+                            fontSize: fontSize(10),
+                            color: COLORS.error,
+                            marginLeft: 5,
+                            fontFamily: FONTS.medium,
+                          }}
+                        >
+                          (+ ₹{lateFee + bounceFee} Late Fee)
+                        </MainText>
+                      )}
+                    </View>
+                  </View>
+                );
+              })()}
               <View style={[styles.row, { marginTop: verticalScale(10) }]}>
                 <MainText style={styles.label}>Status:</MainText>
                 <MainText
@@ -290,7 +320,6 @@ const UserDashboard = ({ navigation }) => {
                   {homeData?.status}
                 </MainText>
               </View>
-
               {/* View Full Details Button */}
               <TouchableOpacity
                 style={{
@@ -326,7 +355,6 @@ const UserDashboard = ({ navigation }) => {
                   View Installments Only
                 </MainText>
               </TouchableOpacity>
-
               {/* Pay Now Button */}
               {homeData?.amount &&
                 Number(homeData.amount) > 0 &&

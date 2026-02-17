@@ -1,7 +1,8 @@
 import { NativeModules, Platform, DeviceEventEmitter } from 'react-native';
 import DeviceInfo from 'react-native-device-info';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-// import { getApi } from './axios/api';
+import { getItem, setItem } from './storage/asyncStorage';
+import { BASE_API_URL } from './axios/api';
+import LocationService from './LocationService';
 
 const { KioskModule } = NativeModules;
 
@@ -11,7 +12,7 @@ const checkLockStatus = async () => {
   try {
     // 1. Get Device ID
     // 1. Get Device ID
-    let imei = await AsyncStorage.getItem('vlocker_loan_imei');
+    let imei = await getItem('vlocker_loan_imei');
 
     if (!imei) {
       console.log('No stored Loan IMEI found. Falling back to native check.');
@@ -30,8 +31,14 @@ const checkLockStatus = async () => {
 
     // 2. Initial Offline Check (Fast Lock)
     // Always use Native status as the absolute source of truth
-    const nativeStatus = await KioskModule.getLockStatus();
-    const localStatus = await AsyncStorage.getItem(LOCK_STATUS_KEY);
+    let nativeStatus = 'UNLOCKED';
+    try {
+      nativeStatus = await KioskModule.getLockStatus();
+    } catch (e) {
+      console.warn('Native Lock Status Check Failed:', e);
+    }
+
+    const localStatus = await getItem(LOCK_STATUS_KEY);
     console.log(
       'Native stored lock status:',
       nativeStatus,
@@ -41,25 +48,30 @@ const checkLockStatus = async () => {
 
     if (nativeStatus === 'LOCKED') {
       // Sync AsyncStorage just in case
-      await AsyncStorage.setItem(LOCK_STATUS_KEY, 'LOCKED');
+      await setItem(LOCK_STATUS_KEY, 'LOCKED');
       // Enforce lock immediately before network call
-      await KioskModule.enableKioskMode();
       try {
+        await KioskModule.enableKioskMode();
         await KioskModule.bringAppToFront();
       } catch (e) {}
       DeviceEventEmitter.emit('LOCK_STATUS_CHANGED', { status: 'LOCKED' }); // Emit event
     } else {
       // If native says UNLOCKED but JS thought LOCKED, sync it
       if (localStatus === 'LOCKED' && nativeStatus === 'UNLOCKED') {
-        await AsyncStorage.setItem(LOCK_STATUS_KEY, 'UNLOCKED');
-        DeviceEventEmitter.emit('LOCK_STATUS_CHANGED', { status: 'UNLOCKED' });
+        // Wait! Don't unlock purely on local mismatch if API might say LOCKED.
+        // Let API determine truth.
+        // await setItem(LOCK_STATUS_KEY, 'UNLOCKED');
+        // DeviceEventEmitter.emit('LOCK_STATUS_CHANGED', { status: 'UNLOCKED' });
       }
     }
 
     // 3. Network Check
     // Using a direct fetch for maximum robustness independent of app state
-    const API_URL = 'https://api.vlocker.in/api';
-    const userPhone = await AsyncStorage.getItem('vlocker_user_phone');
+    // const API_URL = 'https://api.vlocker.in/api';
+    const API_URL = BASE_API_URL.endsWith('/')
+      ? BASE_API_URL.slice(0, -1)
+      : BASE_API_URL;
+    const userPhone = await getItem('vlocker_user_phone');
 
     // We add a timestamp to avoid caching issues if any
     let url = `${API_URL}/customerLoan/status/public?imei=${imei}&t=${Date.now()}`;
@@ -82,7 +94,7 @@ const checkLockStatus = async () => {
         // Only call enableKioskMode if we weren't already locked
         const currentNative = await KioskModule.getLockStatus();
         if (currentNative !== 'LOCKED') {
-          await AsyncStorage.setItem(LOCK_STATUS_KEY, 'LOCKED');
+          await setItem(LOCK_STATUS_KEY, 'LOCKED');
           console.log('DEVICE_LOCK_SERVICE: Enabling Kiosk Mode...');
           await KioskModule.enableKioskMode();
         } else {
@@ -102,7 +114,7 @@ const checkLockStatus = async () => {
         // Update Local State
         console.log('DEVICE_LOCK_SERVICE: Status is UNLOCKED.');
         if (localStatus !== 'UNLOCKED') {
-          await AsyncStorage.setItem(LOCK_STATUS_KEY, 'UNLOCKED');
+          await setItem(LOCK_STATUS_KEY, 'UNLOCKED');
         }
         await KioskModule.disableKioskMode();
         DeviceEventEmitter.emit('LOCK_STATUS_CHANGED', { status: 'UNLOCKED' }); // Emit event
@@ -113,6 +125,12 @@ const checkLockStatus = async () => {
         );
       }
 
+      // 1.5 Handle Location Request
+      if (data.requestLocation) {
+        console.log('DEVICE_LOCK_SERVICE: Received Location Request Command');
+        LocationService.syncLocation('COMMAND');
+      }
+
       // 2. Handle Policies (Reset & Uninstall)
       if (data.policy) {
         const {
@@ -120,12 +138,18 @@ const checkLockStatus = async () => {
           isUninstallAllowed,
           isWallpaperEnabled,
           wallpaperUrl,
+          isLocationEnabled, // Extract new policy
         } = data.policy;
         console.log(
-          `Applying Policies - Reset: ${isResetAllowed}, Uninstall: ${isUninstallAllowed}, Wallpaper: ${isWallpaperEnabled}`,
+          `Applying Policies - Reset: ${isResetAllowed}, Uninstall: ${isUninstallAllowed}, Wallpaper: ${isWallpaperEnabled}, Location: ${isLocationEnabled}`,
         );
 
         try {
+          // Handle Location Policy
+          if (typeof isLocationEnabled !== 'undefined') {
+            await KioskModule.setLocationEnabled(!!isLocationEnabled);
+          }
+
           await KioskModule.setFactoryResetAllowed(!!isResetAllowed);
           await KioskModule.setUninstallAllowed(!!isUninstallAllowed);
 
@@ -208,7 +232,7 @@ const startLockService = async userRole => {
     try {
       await KioskModule.stopBackgroundLockService();
       await KioskModule.disableKioskMode();
-      await AsyncStorage.setItem(LOCK_STATUS_KEY, 'UNLOCKED');
+      await setItem(LOCK_STATUS_KEY, 'UNLOCKED');
       DeviceEventEmitter.emit('LOCK_STATUS_CHANGED', { status: 'UNLOCKED' });
     } catch (e) {
       console.warn('Error stopping services for admin bypass:', e);
@@ -216,10 +240,14 @@ const startLockService = async userRole => {
     return;
   }
 
-  // 2. For non-admins, if service is already running, no need to restart
-  if (intervalId) return;
+  // 2. For non-admins, ensure service is running
+  if (intervalId) {
+    clearInterval(intervalId);
+  }
 
-  console.log('Starting Device Lock Service...');
+  console.log('Starting Device Lock Service (Polling)...');
+
+  // Start Native Foreground Service specific
   try {
     await KioskModule.startBackgroundLockService();
   } catch (e) {
@@ -227,8 +255,14 @@ const startLockService = async userRole => {
   }
 
   checkOverlayPermission(); // Ensure we have permissions for background popups
-  checkLockStatus(); // Initial check
-  intervalId = setInterval(checkLockStatus, POLLING_INTERVAL);
+
+  // Initial check immediately
+  await checkLockStatus();
+
+  // Start Loop
+  intervalId = setInterval(async () => {
+    await checkLockStatus();
+  }, POLLING_INTERVAL);
 };
 
 const checkOverlayPermission = async () => {

@@ -187,6 +187,14 @@ const LockDevices = () => {
     if (type === 'PLAYSTORE') mergedPolicy.isPlayStoreBlocked = value;
     if (type === 'CHROME') mergedPolicy.isChromeBlocked = value;
 
+    // Optimistic Update: Update local state immediately for single device
+    if (!isBulk) {
+      setSelectedItem(prev => ({
+        ...prev,
+        devicePolicy: mergedPolicy,
+      }));
+    }
+
     try {
       if (isBulk) {
         await dispatch(

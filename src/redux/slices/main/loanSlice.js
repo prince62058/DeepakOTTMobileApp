@@ -241,6 +241,33 @@ export const updateDevicePolicyBulkThunk = createAsyncThunk(
   },
 );
 
+export const getSimDetailsThunk = createAsyncThunk(
+  'loan/getSimDetailsThunk',
+  async ({ loanId }, { rejectWithValue }) => {
+    try {
+      const response = await getApi(`customerLoan/sim/${loanId}`);
+      return response.data;
+    } catch (error) {
+      showToast(error);
+      return rejectWithValue(error);
+    }
+  },
+);
+
+export const requestDeviceLocationThunk = createAsyncThunk(
+  'loan/requestDeviceLocationThunk',
+  async ({ loanId }, { rejectWithValue }) => {
+    try {
+      const response = await postApi(`customerLoan/location/request/${loanId}`);
+      showToast('Location request sent');
+      return response.data;
+    } catch (error) {
+      showToast(error);
+      return rejectWithValue(error);
+    }
+  },
+);
+
 const loanSlice = createSlice({
   name: 'loanSlice',
   initialState: {

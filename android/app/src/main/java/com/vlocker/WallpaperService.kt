@@ -134,7 +134,7 @@ class WallpaperService : Service() {
                 
                 var finalUrl = urlString
                 if (urlString.contains("localhost")) {
-                    finalUrl = urlString.replace("localhost", "10.0.2.2")
+                    finalUrl = urlString.replace("localhost", "172.20.10.2")
                 }
                 
                 val url = URL(finalUrl)

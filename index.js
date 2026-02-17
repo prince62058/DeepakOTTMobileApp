@@ -14,4 +14,9 @@ import { AppRegistry } from 'react-native';
 import App from './src/App';
 import { name as appName } from './app.json';
 
+import { backgroundLocationTask } from './src/services/location/backgroundLocationTask';
+AppRegistry.registerHeadlessTask(
+  'BackgroundLocationTask',
+  () => backgroundLocationTask,
+);
 AppRegistry.registerComponent(appName, () => App);

@@ -3,37 +3,34 @@ import { Platform } from 'react-native';
 import { getSecureItem } from '../storage/keychain';
 
 // Production URL
-export const BASE_API_URL =
-  Platform.OS === 'android'
-    ? 'https://api.vlocker.in/api/'
-    : 'https://api.vlocker.in/api/';
-
-// Local URL (Uncomment when needed)
 // export const BASE_API_URL =
 //   Platform.OS === 'android'
-//     ? 'http://10.0.2.2:3000/api/'
-//     : 'http://localhost:3000/api/';
+//     ? 'https://api.vlocker.in/api/'
+//     : 'https://api.vlocker.in/api/';
+
+// Local URL (Uncomment when needed)
+// Production URL
+// export const BASE_API_URL = 'https://api.vlocker.in/api/';
+
+// Local URL (Uncomment when needed)
+// Local URL (Uncomment when needed)
+export const BASE_API_URL = 'http://172.20.10.2:3005/api/';
+
+// ...
+
+// Production Media URL
+// export const MEDIA_BASE_URL = 'https://api.vlocker.in';
+
+// Local Media URL (Uncomment when needed)
+export const MEDIA_BASE_URL = 'http://172.20.10.2:3005';
 
 const api = axios.create({
-  // baseURL: 'https://api.vlocker.in/api/',
   baseURL: BASE_API_URL,
   timeout: 30 * 1000,
   headers: {
     'Content-Type': 'application/json',
   },
 });
-
-// Production Media URL
-export const MEDIA_BASE_URL =
-  Platform.OS === 'android'
-    ? 'https://api.vlocker.in'
-    : 'https://api.vlocker.in';
-
-// Local Media URL (Uncomment when needed)
-// export const MEDIA_BASE_URL =
-//   Platform.OS === 'android'
-//     ? 'http://10.0.2.2:3000'
-//     : 'http://localhost:3000';
 
 api.interceptors.request.use(
   async config => {
@@ -104,6 +101,14 @@ export const putApi = async (endpoint, data) => {
 export const deleteApi = async (endpoint, params) => {
   try {
     return await api.delete(endpoint, params);
+  } catch (error) {
+    throw error;
+  }
+};
+
+export const postLocationApi = async data => {
+  try {
+    return await api.post('/customerLoan/location', data);
   } catch (error) {
     throw error;
   }

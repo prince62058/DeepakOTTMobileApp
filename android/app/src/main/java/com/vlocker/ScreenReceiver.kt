@@ -6,13 +6,22 @@ import android.content.Intent
 import com.facebook.react.ReactInstanceManager
 import com.facebook.react.bridge.ReactContext
 import com.facebook.react.modules.core.DeviceEventManagerModule
-
+  
 class ScreenReceiver(private val application: com.facebook.react.ReactApplication) : BroadcastReceiver() {
     override fun onReceive(context: Context, intent: Intent) {
         if (intent.action == Intent.ACTION_SCREEN_OFF) {
             sendEvent("SCREEN_OFF", null)
         } else if (intent.action == Intent.ACTION_SCREEN_ON) {
             sendEvent("SCREEN_ON", null)
+            
+            // Proactively wake up LockService to bring app to front
+            val serviceIntent = Intent(context, LockService::class.java)
+            serviceIntent.action = "com.vlocker.ACTION_WAKE_UP"
+            if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.O) {
+                context.startForegroundService(serviceIntent)
+            } else {
+                context.startService(serviceIntent)
+            }
         }
     }
 

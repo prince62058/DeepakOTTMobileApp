@@ -32,10 +32,38 @@ const InstallmentCard = ({
         </View>
       </View>
       <View style={[styles.flex, { marginTop: SIZES.height * 0.01 }]}>
-        <MainText style={styles.cashText}>
-          {item?.amount || item?.cash || cash}
-        </MainText>
-        <MainText style={styles.cash}> cash</MainText>
+        {(() => {
+          const currentStatus = item?.status || status;
+          const isOverdue =
+            currentStatus === 'OVERDUE' || currentStatus === 'Overdue';
+          const baseAmount = Number(item?.amount || item?.cash || cash || 0);
+          const lateFee = Number(item?.lateFee || 0);
+          const bounceFee = Number(item?.bounceFee || 0);
+          const totalAmount = isOverdue
+            ? baseAmount + lateFee + bounceFee
+            : baseAmount;
+
+          return (
+            <View>
+              <View style={{ flexDirection: 'row', alignItems: 'flex-end' }}>
+                <MainText style={styles.cashText}>{totalAmount}</MainText>
+                <MainText style={styles.cash}> cash</MainText>
+              </View>
+              {isOverdue && (lateFee > 0 || bounceFee > 0) && (
+                <MainText
+                  style={{
+                    fontSize: fontSize(10),
+                    color: 'red',
+                    fontFamily: 'Inter-Medium',
+                    marginTop: 2,
+                  }}
+                >
+                  (+ ₹{lateFee + bounceFee} Additional Fee)
+                </MainText>
+              )}
+            </View>
+          );
+        })()}
       </View>
       <View style={styles.statusContainer}>
         <MainText style={styles.remarkText}>Remarks:</MainText>

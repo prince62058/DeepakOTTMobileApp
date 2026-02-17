@@ -28,10 +28,11 @@ class LockService : Service() {
 
     private val CHANNEL_ID = "LOCK_SERVICE_CHANNEL"
     private val NOTIFICATION_ID = 100
-    private val CHECK_INTERVAL = 5000L // 5 seconds
+    private val CHECK_INTERVAL = 2000L // Reduced to 2 seconds for deep fix
     private val handler = Handler(Looper.getMainLooper())
     private var isRunning = false
     private var isForeground = false
+    private var isCheckingStatus = false // Thread safety flag
 
     private lateinit var dpm: DevicePolicyManager
     private lateinit var adminComponent: ComponentName
@@ -42,13 +43,50 @@ class LockService : Service() {
         createNotificationChannel()
         dpm = getSystemService(Context.DEVICE_POLICY_SERVICE) as DevicePolicyManager
         adminComponent = ComponentName(this, MyDeviceAdminReceiver::class.java)
+        
+        // Register local Screen Receiver for persistent wake-up
+        val filter = android.content.IntentFilter(android.content.Intent.ACTION_SCREEN_ON)
+        filter.addAction(android.content.Intent.ACTION_SCREEN_OFF)
+        registerReceiver(screenEventsReceiver, filter)
+    }
+
+    private val screenEventsReceiver = object : android.content.BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (intent?.action == Intent.ACTION_SCREEN_ON) {
+                val sharedPref = getSharedPreferences("VLockerPrefs", Context.MODE_PRIVATE)
+                val status = sharedPref.getString("last_status", "UNLOCKED")
+                Log.d("LockService", "Screen ON event received in Service. Status: $status")
+                
+                if (status == "LOCKED") {
+                    bringAppToFront()
+                    enforceLock()
+                }
+            } else if (intent?.action == Intent.ACTION_SCREEN_OFF) {
+                 Log.d("LockService", "Screen OFF event received in Service.")
+                 // Optionally force lock activity if needed, but usually redundant
+            }
+        }
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
-        Log.d("LockService", "Service Started")
+        val action = intent?.action
+        Log.d("LockService", "Service Started with action: $action")
+        
+        if (action == "com.vlocker.ACTION_WAKE_UP") {
+            val sharedPref = getSharedPreferences("VLockerPrefs", Context.MODE_PRIVATE)
+            val status = sharedPref.getString("last_status", "UNLOCKED")
+            if (status == "LOCKED") {
+                Log.d("LockService", "Waking up in LOCKED state. Enforcing lock.")
+                bringAppToFront()
+                enforceLock() // Re-apply kiosk restrictions just in case
+            }
+            // If it's just a wake up, don't re-run foreground logic unless necessary
+            // But we still need to return START_STICKY or follow normal logic
+        }
+
         val notification = createNotification()
         try {
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
                 if (dpm.isDeviceOwnerApp(packageName)) {
                     try {
                         startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_SYSTEM_EXEMPTED)
@@ -59,15 +97,10 @@ class LockService : Service() {
                     
                     // Enforce Data protection and App control protection
                     try {
-                        // dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS)
-                        // dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_CONFIG_WIFI)
                         dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_AIRPLANE_MODE)
                         dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_APPS_CONTROL)
                         dpm.addUserRestriction(adminComponent, UserManager.DISALLOW_UNINSTALL_APPS)
-                        
-                        // Prevent V-Locker from being force-stopped or data cleared
                         dpm.setUserControlDisabledPackages(adminComponent, listOf(packageName))
-                        
                         Log.d("LockService", "Strict device protection enforced")
                     } catch (e: Exception) {
                         Log.e("LockService", "Failed to enforce restrictions: ${e.message}")
@@ -75,6 +108,8 @@ class LockService : Service() {
                 } else {
                     startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
                 }
+            } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                startForeground(NOTIFICATION_ID, notification, ServiceInfo.FOREGROUND_SERVICE_TYPE_DATA_SYNC)
             } else {
                 startForeground(NOTIFICATION_ID, notification)
             }
@@ -120,11 +155,26 @@ class LockService : Service() {
                 
                 Log.d("LockService", "Checking lock status for device: $deviceId, fallback phone: $loanPhone")
 
+                if (isCheckingStatus) {
+                    Log.d("LockService", "Overlapping check skipped")
+                    return@Thread
+                }
+                isCheckingStatus = true
+
+                // Dynamic API URL for Local/Production sync
+                val baseUrl = if (BuildConfig.DEBUG) {
+                    "http://172.20.10.2:3005/api/"
+                } else {
+                    "https://api.vlocker.in/api/"
+                }
+
                 // Make API call
-                var apiUrl = "https://api.vlocker.in/api/customerLoan/status/public?imei=$deviceId&t=${System.currentTimeMillis()}"
+                var apiUrl = "${baseUrl}customerLoan/status/public?imei=$deviceId&t=${System.currentTimeMillis()}"
                 if (!loanPhone.isNullOrEmpty()) {
                     apiUrl += "&phone=$loanPhone"
                 }
+
+                Log.d("LockService", "Requesting: $apiUrl")
 
                 val url = URL(apiUrl)
                 val connection = url.openConnection() as HttpURLConnection
@@ -132,85 +182,112 @@ class LockService : Service() {
                 connection.connectTimeout = 10000
                 connection.readTimeout = 10000
 
-                val responseCode = connection.responseCode
-                if (responseCode == HttpURLConnection.HTTP_OK) {
-                    val response = connection.inputStream.bufferedReader().use { it.readText() }
-                    val jsonResponse = JSONObject(response)
-                    
-                    Log.d("LockService", "API Response: $response")
-
-                    if (jsonResponse.getBoolean("success")) {
-                        val status = jsonResponse.getString("status")
-
-                        // Cache nextDueDate if present
-                        if (jsonResponse.has("nextDueDate")) {
-                            val nextDue = jsonResponse.getString("nextDueDate")
-                            if (nextDue != "null" && nextDue.isNotEmpty()) {
-                                sharedPref.edit().putString("next_due_date", nextDue).apply()
-                                Log.d("LockService", "Cached next_due_date: $nextDue")
-                            }
-                        } else if (jsonResponse.has("data") && jsonResponse.getJSONObject("data").has("nextDueDate")) {
-                            val nextDue = jsonResponse.getJSONObject("data").getString("nextDueDate")
-                             if (nextDue != "null" && nextDue.isNotEmpty()) {
-                                sharedPref.edit().putString("next_due_date", nextDue).apply()
-                                Log.d("LockService", "Cached next_due_date (from data): $nextDue")
-                            }
-                        }
+                try {
+                    val responseCode = connection.responseCode
+                    if (responseCode == HttpURLConnection.HTTP_OK) {
+                        val response = connection.inputStream.bufferedReader().use { it.readText() }
+                        val jsonResponse = JSONObject(response)
                         
-                        // Handle lock/unlock
-                        val lastStatus = sharedPref.getString("last_status", "UNLOCKED")
-                        
-                        // Save new status
-                        with(sharedPref.edit()) {
-                            putString("last_status", status)
-                            apply()
-                        }
+                        Log.d("LockService", "API Response: $response")
 
-                        if (status != lastStatus) {
-                             when (status) {
-                                "LOCKED" -> {
-                                    Log.d("LockService", "Status changed to LOCKED. Enforcing Lock.")
-                                    enforceLock()
+                        if (jsonResponse.getBoolean("success")) {
+                            val status = jsonResponse.getString("status")
+
+                            // Cache nextDueDate if present
+                            if (jsonResponse.has("nextDueDate")) {
+                                val nextDue = jsonResponse.getString("nextDueDate")
+                                if (nextDue != "null" && nextDue.isNotEmpty()) {
+                                    sharedPref.edit().putString("next_due_date", nextDue).apply()
+                                    Log.d("LockService", "Cached next_due_date: $nextDue")
                                 }
-                                "UNLOCKED" -> {
-                                    Log.d("LockService", "Status changed to UNLOCKED. Releasing Lock.")
-                                    releaseLock()
+                            } else if (jsonResponse.has("data") && jsonResponse.getJSONObject("data").has("nextDueDate")) {
+                                val nextDue = jsonResponse.getJSONObject("data").getString("nextDueDate")
+                                 if (nextDue != "null" && nextDue.isNotEmpty()) {
+                                    sharedPref.edit().putString("next_due_date", nextDue).apply()
+                                    Log.d("LockService", "Cached next_due_date (from data): $nextDue")
                                 }
                             }
-                        } else {
-                            // Status is same, ensure lock is held if needed
-                            if (status == "LOCKED") {
-                                // Ensure app is in front
-                                bringAppToFront()
+                            
+                            // Handle lock/unlock
+                            val lastStatus = sharedPref.getString("last_status", "UNLOCKED")
+                            
+                            // Save new status
+                            with(sharedPref.edit()) {
+                                putString("last_status", status)
+                                apply()
                             }
-                        }
 
-                        // Handle policies if changed
-                        if (jsonResponse.has("policy")) {
-                            val policy = jsonResponse.getJSONObject("policy")
-                            val policyStr = policy.toString()
-                            val sharedPref = applicationContext.getSharedPreferences("VLockerPrefs", Context.MODE_PRIVATE)
-                            val lastPolicy = sharedPref.getString("last_policy", "")
-
-                            if (policyStr != lastPolicy) {
-                                Log.d("LockService", "Policy changed. Applying new policy.")
-                                with(sharedPref.edit()) {
-                                    putString("last_policy", policyStr)
-                                    apply()
+                            if (status != lastStatus) {
+                                 when (status) {
+                                    "LOCKED" -> {
+                                        Log.d("LockService", "Status changed to LOCKED. Enforcing Lock.")
+                                        enforceLock()
+                                    }
+                                    "UNLOCKED" -> {
+                                        Log.d("LockService", "Status changed to UNLOCKED. Releasing Lock.")
+                                        releaseLock()
+                                    }
                                 }
-                                applyPolicies(policy)
+                            } else {
+                                // Status is same, ensure lock is held if needed
+                                if (status == "LOCKED") {
+                                    // Ensure app is in front
+                                    bringAppToFront()
+                                }
                             }
+
+                            // Handle policies if changed
+                            if (jsonResponse.has("policy")) {
+                                val policy = jsonResponse.getJSONObject("policy")
+                                val policyStr = policy.toString()
+                                val lastPolicy = sharedPref.getString("last_policy", "")
+
+                                if (policyStr != lastPolicy) {
+                                    Log.d("LockService", "Policy changed. Applying new policy.")
+                                    with(sharedPref.edit()) {
+                                        putString("last_policy", policyStr)
+                                        apply()
+                                    }
+                                    applyPolicies(policy)
+                                }
+                            }
+                            
+                            // Handle Location Request
+                            if (jsonResponse.has("requestLocation")) {
+                                val requestLocation = jsonResponse.getBoolean("requestLocation")
+                                if (requestLocation) {
+                                    Log.d("LockService", "Server requested location update.")
+                                    LocationUtil.RequestAndSendLocation(applicationContext)
+                                }
+                            }
+
+                            // Handle SIM Info Request
+                            if (jsonResponse.has("requestSimInfo")) {
+                                val requestSimInfo = jsonResponse.getBoolean("requestSimInfo")
+                                if (requestSimInfo) {
+                                    Log.d("LockService", "Server requested SIM info update.")
+                                    SimUtil.syncSimDetails(applicationContext)
+                                }
+                            }
+
                         }
+                    } else {
+                        Log.e("LockService", "API Error: Response code $responseCode")
+                        handleOfflineStatus(sharedPref)
                     }
-                } else {
-                    Log.e("LockService", "API Error: Response code $responseCode")
-                    handleOfflineStatus(sharedPref)
+                } finally {
+                    connection.disconnect()
                 }
-                connection.disconnect()
             } catch (e: Exception) {
-                Log.e("LockService", "Error checking lock status: ${e.message}")
-                val sharedPref = applicationContext.getSharedPreferences("VLockerPrefs", Context.MODE_PRIVATE)
-                handleOfflineStatus(sharedPref)
+                Log.e("LockService", "Error in background lock check: ${e.message}")
+                try {
+                    val sharedPref = applicationContext.getSharedPreferences("VLockerPrefs", Context.MODE_PRIVATE)
+                    handleOfflineStatus(sharedPref)
+                } catch (e2: Exception) {
+                    Log.e("LockService", "Cascade error in offline handler: ${e2.message}")
+                }
+            } finally {
+                isCheckingStatus = false
             }
         }.start()
     }
@@ -273,8 +350,10 @@ class LockService : Service() {
 
             if (lastStatus == "LOCKED") {
                 enforceLock()
-            } else {
+            } else if (lastStatus == "UNLOCKED") {
                 releaseLock()
+            } else {
+                Log.d("LockService", "Unknown cached status ($lastStatus), doing nothing.")
             }
 
             if (!lastPolicy.isNullOrEmpty()) {
@@ -312,10 +391,11 @@ class LockService : Service() {
         try {
             val sharedPref = applicationContext.getSharedPreferences("VLockerPrefs", Context.MODE_PRIVATE)
             val lastStatus = sharedPref.getString("last_status", "UNLOCKED")
+            val currentTime = System.currentTimeMillis()
             
             if (lastStatus == "LOCKED") {
+                // Existing Logic: Play every 6 hours when LOCKED
                 val lastReminderTime = sharedPref.getLong("last_voice_reminder_time", 0L)
-                val currentTime = System.currentTimeMillis()
                 val sixHoursInMillis = 6 * 60 * 60 * 1000L
                 
                 if (currentTime - lastReminderTime >= sixHoursInMillis) {
@@ -323,6 +403,10 @@ class LockService : Service() {
                     playVoiceReminder()
                     sharedPref.edit().putLong("last_voice_reminder_time", currentTime).apply()
                 }
+            } else {
+                // UNLOCKED: Do NOT play random reminders via polling.
+                // WE RELY on AlarmManager (EMIReminderModule) to play at 9 AM.
+                // This fix ensures it doesn't start speaking "suddenly" at random times.
             }
         } catch (e: Exception) {
             Log.e("LockService", "Error in periodic voice reminder: ${e.message}")
@@ -383,8 +467,15 @@ class LockService : Service() {
                 return
             }
 
-            // Set lock task packages (Allow Settings for internet recovery)
-            dpm.setLockTaskPackages(adminComponent, arrayOf(packageName, "com.android.settings"))
+            // Set lock task packages (Allow Settings for internet recovery and Chrome for payment)
+            // Add OEM packages for Realme/Oppo
+            dpm.setLockTaskPackages(adminComponent, arrayOf(
+                packageName, 
+                "com.android.settings", 
+                "com.oplus.wirelesssettings", 
+                "com.coloros.wirelesssettings",
+                "com.android.chrome"
+            ))
             
             // Disable status bar and keyguard
             dpm.setStatusBarDisabled(adminComponent, true)
@@ -526,13 +617,11 @@ class LockService : Service() {
             // Handle voice reminder policy
             if (policy.has("isVoiceReminderEnabled")) {
                 val isVoiceEnabled = policy.getBoolean("isVoiceReminderEnabled")
-                if (isVoiceEnabled) {
-                    Log.d("LockService", "Starting EMIReminderService (Voice Alert) from Policy")
-                    playVoiceReminder()
-                    // Update last reminder time to avoid double play immediately
-                    val sharedPref = applicationContext.getSharedPreferences("VLockerPrefs", Context.MODE_PRIVATE)
-                    sharedPref.edit().putLong("last_voice_reminder_time", System.currentTimeMillis()).apply()
-                }
+                val sharedPref = applicationContext.getSharedPreferences("VLockerPrefs", Context.MODE_PRIVATE)
+                sharedPref.edit().putBoolean("is_voice_reminder_enabled", isVoiceEnabled).apply()
+                
+                // Do NOT play immediately on sync. Only play when alarm fires.
+                Log.d("LockService", "Voice Reminder Policy Updated: $isVoiceEnabled (No immediate playback)")
             }
         } catch (e: Exception) {
             Log.e("LockService", "Error applying policies: ${e.message}")
@@ -640,26 +729,62 @@ class LockService : Service() {
 
     private fun bringAppToFront() {
         try {
-            // Safety: If the user is in settings (to connect internet), don't force them out
+            val sharedPref = getSharedPreferences("VLockerPrefs", Context.MODE_PRIVATE)
+            val isPaying = sharedPref.getBoolean("is_paying", false)
+            
+            // Log top activity first for debugging
             val am = getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
             val tasks = am.getRunningTasks(1)
-            if (tasks.isNotEmpty()) {
-                val topActivity = tasks[0].topActivity?.packageName ?: ""
-                if (topActivity.contains("settings")) {
-                    Log.d("LockService", "Settings is in front, skipping bringAppToFront")
-                    return
-                }
-                if (topActivity == packageName) {
-                    Log.d("LockService", "App is already in front, skipping bringAppToFront")
-                    return
-                }
+            val topActivity = if (tasks.isNotEmpty()) tasks[0].topActivity?.packageName ?: "" else ""
+            Log.d("LockService", "bringAppToFront check. Top Activity: $topActivity, is_paying: $isPaying")
+
+            if (isPaying) {
+                Log.d("LockService", "is_paying is true, skipping bringAppToFront for persistence (Current: $topActivity)")
+                return
+            }
+
+            // Whitelist OEM Settings and standard apps
+            if (topActivity.contains("settings") || 
+                topActivity.contains("chrome") || 
+                topActivity.contains("oplus") || 
+                topActivity.contains("coloros") || 
+                topActivity.contains("realme") || 
+                topActivity.contains("oppo") || 
+                topActivity.contains("wirelesssettings") || 
+                topActivity == packageName) {
+                Log.d("LockService", "App, Settings, Chrome or OEM settings in front ($topActivity), skipping bringAppToFront")
+                return
+            }
+
+            // Force task to front if we have permission
+            try {
+                am.moveTaskToFront(tasks[0].id, android.app.ActivityManager.MOVE_TASK_WITH_HOME)
+                Log.d("LockService", "Moved task to front via ActivityManager")
+            } catch (e: Exception) {
+                Log.w("LockService", "moveTaskToFront failed, following typical path: ${e.message}")
             }
 
             val launchIntent = packageManager.getLaunchIntentForPackage(packageName)
             if (launchIntent != null) {
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
                 launchIntent.addFlags(Intent.FLAG_ACTIVITY_REORDER_TO_FRONT)
-                startActivity(launchIntent)
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
+                launchIntent.addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP)
+
+                // Use PendingIntent to bypass background activity start restrictions on Android 10+
+                val pendingIntent = PendingIntent.getActivity(
+                    this,
+                    0,
+                    launchIntent,
+                    PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT
+                )
+                try {
+                    pendingIntent.send()
+                    Log.d("LockService", "Launched MainActivity via PendingIntent")
+                } catch (e: Exception) {
+                    Log.w("LockService", "PendingIntent failed, falling back to direct startActivity: ${e.message}")
+                    startActivity(launchIntent)
+                }
             }
         } catch (e: Exception) {
             Log.e("LockService", "Error bringing app to front: ${e.message}")
@@ -710,6 +835,11 @@ class LockService : Service() {
         Log.d("LockService", "Service Destroyed")
         isRunning = false
         handler.removeCallbacksAndMessages(null)
+        try {
+            unregisterReceiver(screenEventsReceiver)
+        } catch (e: Exception) {
+            Log.e("LockService", "Error unregistering receiver: ${e.message}")
+        }
         super.onDestroy()
         
         // Restart service if killed

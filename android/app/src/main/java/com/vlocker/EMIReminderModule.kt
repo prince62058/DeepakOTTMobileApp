@@ -28,8 +28,8 @@ class EMIReminderModule(private val reactContext: ReactApplicationContext) : Rea
 
             val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
 
-            // Schedule notifications for 5, 4, 3, 2 days before due date (single notification at 9 AM)
-            val daysBeforeDue = listOf(5, 4, 3, 2)
+            // Schedule notifications for 4, 3, 2 days before due date (single notification at 9 AM)
+            val daysBeforeDue = listOf(4, 3, 2)
             for ((index, daysOffset) in daysBeforeDue.withIndex()) {
                 val notificationDate = Calendar.getInstance().apply {
                     timeInMillis = dueDate.timeInMillis

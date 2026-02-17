@@ -31,8 +31,16 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
             if (dpm.isDeviceOwnerApp(reactApplicationContext.packageName)) {
                 android.util.Log.d("KioskModule", "App is Device Owner. Setting restrictions...")
                 
-                // 1. Set Lock Task Packages (Allow this app and Settings for internet recovery)
-                dpm.setLockTaskPackages(adminComponent, arrayOf(reactApplicationContext.packageName, "com.android.settings"))
+                // 1. Set Lock Task Packages (Allow this app, Settings for internet, and Chrome for payment)
+                // 1. Set Lock Task Packages (Allow this app, Settings for internet, and Chrome for payment)
+                // Add Oplus/Ex-ColorOS settings packages for Realme devices
+                dpm.setLockTaskPackages(adminComponent, arrayOf(
+                    reactApplicationContext.packageName, 
+                    "com.android.settings", 
+                    "com.oplus.wirelesssettings", 
+                    "com.coloros.wirelesssettings",
+                    "com.android.chrome"
+                ))
                 
                 // 2. Clear any existing PIN/Password
                 try {
@@ -56,13 +64,18 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                 dpm.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_ADD_USER)
                 dpm.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_USB_FILE_TRANSFER)
                 dpm.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH)
-                dpm.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_WIFI)
-                dpm.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS)
+                dpm.clearUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_WIFI) // ALLOW WiFi
+                dpm.clearUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_MOBILE_NETWORKS) // ALLOW Mobile Data
                 dpm.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_AIRPLANE_MODE)
                 dpm.addUserRestriction(adminComponent, android.os.UserManager.DISALLOW_APPS_CONTROL)
+                // Ensure location is enabled
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    dpm.setLocationEnabled(adminComponent, true)
+                }
+                dpm.clearUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_LOCATION)
                 
-                // 5. Prevent force-stop and disabling of this app (Temporarily disabled due to build error)
-                // dpm.setControlDisabledPackages(adminComponent, arrayOf(reactApplicationContext.packageName))
+                // 5. Prevent force-stop and disabling of this app
+                dpm.setUserControlDisabledPackages(adminComponent, listOf(reactApplicationContext.packageName))
 
                 android.util.Log.d("KioskModule", "Restrictions set. Starting LockTask...")
 
@@ -133,6 +146,7 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                 dpm.clearUserRestriction(adminComponent, android.os.UserManager.DISALLOW_USB_FILE_TRANSFER)
                 dpm.clearUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_BLUETOOTH)
                 dpm.clearUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_WIFI)
+                dpm.clearUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_LOCATION)
                 
                 // Note: DISALLOW_FACTORY_RESET and DISALLOW_APPS_CONTROL remain active for permanent protection
                 
@@ -233,10 +247,57 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
         try {
             val intent = Intent(Settings.ACTION_WIFI_SETTINGS)
             intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS) // Key for context
+            intent.addFlags(Intent.FLAG_ACTIVITY_NO_HISTORY)
             reactApplicationContext.startActivity(intent)
             promise.resolve(true)
         } catch (e: Exception) {
-            promise.reject("ERROR", e.message)
+            android.util.Log.w("KioskModule", "Failed to open standard WiFi Settings: " + e.message + ". Trying Oplus/Realme intent...")
+            try {
+                // Fallback for Realme/Oppo devices which might use a custom intent or package
+                val intent = Intent("com.oplus.wirelesssettings.WIFI_SETTINGS") // Common Oplus/Realme intent action
+                intent.setPackage("com.oplus.wirelesssettings") // Target the package explicitly if possible
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS)
+                reactApplicationContext.startActivity(intent)
+                promise.resolve(true)
+            } catch (ex: Exception) {
+                 android.util.Log.e("KioskModule", "Failed to open Oplus WiFi Settings: " + ex.message)
+                 // Try one more generic intent without package
+                 try {
+                     val intent = Intent("android.settings.WIFI_SETTINGS")
+                     intent.setPackage("com.oplus.wirelesssettings")
+                     intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                     reactApplicationContext.startActivity(intent)
+                     promise.resolve(true)
+                 } catch (finalEx: Exception) {
+                     promise.reject("ERROR", "Failed to open WiFi settings on this device: " + finalEx.message)
+                 }
+            }
+        }
+    }
+
+    @ReactMethod
+    fun openInternetPanel(promise: Promise) {
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+                // Try to open the internet connectivity panel first
+                try {
+                    val intent = Intent(Settings.Panel.ACTION_INTERNET_CONNECTIVITY)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                    intent.addFlags(Intent.FLAG_ACTIVITY_EXCLUDE_FROM_RECENTS) // Key for Android 15/LockTask
+                    reactApplicationContext.startActivity(intent)
+                    promise.resolve(true)
+                } catch (e: Exception) {
+                    android.util.Log.e("KioskModule", "Failed to open Internet Panel: " + e.message + ". Falling back to WiFi Settings.")
+                    // Fallback to full WiFi settings if panel fails
+                    openWifiSettings(promise)
+                }
+            } else {
+                openWifiSettings(promise)
+            }
+        } catch (e: Exception) {
+            promise.reject("ERROR", "Failed to open internet settings: " + e.message)
         }
     }
 
@@ -260,13 +321,22 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
             val am = reactApplicationContext.getSystemService(Context.ACTIVITY_SERVICE) as android.app.ActivityManager
             val tasks = am.getRunningTasks(1)
             if (tasks.isNotEmpty()) {
-                val topActivity = tasks[0].topActivity?.packageName ?: ""
-                // If user is in settings (internet recovery), don't kick them out
-                if (topActivity.contains("settings")) {
-                    android.util.Log.d("KioskModule", "Settings is in front, skipping bringAppToFront")
-                    promise.resolve(true)
-                    return
-                }
+            val topActivity = tasks[0].topActivity?.packageName ?: ""
+            android.util.Log.d("KioskModule", "Top Activity for bringAppToFront: $topActivity")
+            
+            // If user is in settings or Chrome (internet recovery/payment/wifi), don't kick them out
+            // Broad whitelisting for Realme/Oppo/ColorOS/Standard settings
+            if (topActivity.contains("settings") || 
+                topActivity.contains("chrome") || 
+                topActivity.contains("oplus") || 
+                topActivity.contains("coloros") ||
+                topActivity.contains("realme") ||
+                topActivity.contains("oppo") ||
+                topActivity.contains("wirelesssettings")) {
+                android.util.Log.d("KioskModule", "Settings, Chrome or OEM settings is in front ($topActivity), skipping bringAppToFront")
+                promise.resolve(true)
+                return
+            }
                 // If app is already in front, don't restart it (prevent jitter)
                 if (topActivity == reactApplicationContext.packageName) {
                     android.util.Log.d("KioskModule", "App is already in front, skipping bringAppToFront")
@@ -388,6 +458,12 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
                 
                 // 3. Block uninstall of VLocker itself
                 dpm.setUninstallBlocked(adminComponent, reactApplicationContext.packageName, true)
+
+                // Ensure location is enabled
+                if (android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.P) {
+                    dpm.setLocationEnabled(adminComponent, true)
+                }
+                dpm.clearUserRestriction(adminComponent, android.os.UserManager.DISALLOW_CONFIG_LOCATION)
                 
                 android.util.Log.d("KioskModule", "Permanent protections enabled: Factory Reset + Uninstall blocked")
                 promise.resolve(true)
@@ -532,6 +608,18 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
     }
 
     @ReactMethod
+    fun setIsPaying(isPaying: Boolean, promise: Promise) {
+        try {
+            val sharedPref = reactApplicationContext.getSharedPreferences("VLockerPrefs", Context.MODE_PRIVATE)
+            sharedPref.edit().putBoolean("is_paying", isPaying).apply()
+            android.util.Log.d("KioskModule", "is_paying set to: $isPaying")
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
     fun setLoanImei(imei: String, promise: Promise) {
         try {
             val sharedPref = reactApplicationContext.getSharedPreferences("VLockerPrefs", Context.MODE_PRIVATE)
@@ -583,6 +671,18 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
     }
 
     @ReactMethod
+    fun openLocationSettings(promise: Promise) {
+        try {
+            val intent = Intent(Settings.ACTION_LOCATION_SOURCE_SETTINGS)
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            reactApplicationContext.startActivity(intent)
+            promise.resolve(true)
+        } catch (e: Exception) {
+            promise.reject("ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
     fun startBackgroundLockService(promise: Promise) {
         try {
             val intent = Intent(reactApplicationContext, LockService::class.java)
@@ -605,6 +705,49 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
             promise.resolve(true)
         } catch (e: Exception) {
             promise.reject("ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun setLocationEnabled(enabled: Boolean, promise: Promise) {
+        try {
+            if (dpm.isDeviceOwnerApp(reactApplicationContext.packageName)) {
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+                    dpm.setLocationEnabled(adminComponent, enabled)
+                    promise.resolve(true)
+                } else {
+                    // Fallback for older versions if possible
+                    try {
+                        dpm.setSecureSetting(adminComponent, "location_mode", if (enabled) "3" else "0")
+                        promise.resolve(true)
+                    } catch (e: Exception) {
+                         promise.reject("API_LEVEL_ERROR", "setLocationEnabled failed and fallback unavailable")
+                    }
+                }
+            } else {
+                promise.reject("NOT_OWNER", "App is not Device Owner")
+            }
+        } catch (e: Exception) {
+            promise.reject("ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
+    fun openChrome(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+            intent.setPackage("com.android.chrome")
+            intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            reactApplicationContext.startActivity(intent)
+        } catch (e: Exception) {
+            // Fallback: Try generic intent if Chrome specific fails, or log error
+            try {
+                val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                intent.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+                reactApplicationContext.startActivity(intent)
+            } catch (ex: Exception) {
+                android.util.Log.e("KioskModule", "Could not open URL: $url", ex)
+            }
         }
     }
 }

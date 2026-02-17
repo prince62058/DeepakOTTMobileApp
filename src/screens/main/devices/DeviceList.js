@@ -5,22 +5,29 @@ import {
   RefreshControl,
   StyleSheet,
   View,
+  TouchableOpacity,
+  Text,
 } from 'react-native';
 import CustomHeader from '../../../components/header/CustomHeader';
 import LoanScreenCard from '../../../components/loanScreenCard';
 import MainView from '../../../components/MainView';
 import SearchBox from '../../../components/search';
-import { SIZES } from '../../../constants';
+import { COLORS, FONTS, SIZES } from '../../../constants';
 import { useDispatch, useSelector } from 'react-redux';
 import {
   clearSearch,
   getLoanListThunk,
+  lockDeviceBulkThunk,
+  unlockDeviceBulkThunk,
+  requestDeviceLocationBulkThunk,
+  requestDeviceSimInfoBulkThunk,
 } from '../../../redux/slices/main/loanSlice';
 import Loader from '../../../components/common/loader/Loader';
 import Nodata from '../../../components/common/nodata/Nodata';
 import Seperator from '../../../components/common/seperator/Seperator';
 import LoanSheet from '../../../components/gorhumsheet/LoanSheet';
 import { showToast } from '../../../utils/ToastAndroid';
+import { fontSize } from '../../../utils/fontSize';
 let debounceTimer;
 
 const DeviceList = ({ navigation, route }) => {
@@ -29,15 +36,15 @@ const DeviceList = ({ navigation, route }) => {
   const dispatch = useDispatch();
   const { loanData, loading, pagination, searchData, searchPagination } =
     useSelector(state => state.loan);
-  // console.log('Loan devices ---> ', loading)
 
   const [search, setSearch] = useState('');
+  const [selectedIds, setSelectedIds] = useState([]);
 
   const fetchData = useCallback(
     ({ isRefresh = false, page = 1, search = '', filter = key }) => {
       dispatch(getLoanListThunk({ isRefresh, page, search, filter }));
     },
-    [dispatch],
+    [dispatch, key],
   );
 
   useEffect(() => {
@@ -51,20 +58,19 @@ const DeviceList = ({ navigation, route }) => {
         dispatch(clearSearch());
         return;
       }
-      console.log('seacrh data --> ', search);
-      // fetchData({ search, page: 1 }) // Always reset to page 1 on new search
+      // fetchData({ search, page: 1 })
     }, 500);
     return () => clearTimeout(debounceTimer);
-  }, [search, fetchData]);
+  }, [search, fetchData, dispatch]);
 
   const onRefresh = useCallback(() => {
     fetchData({ isRefresh: true });
     setSearch('');
     dispatch(clearSearch());
-  }, [fetchData]);
+    setSelectedIds([]);
+  }, [fetchData, dispatch]);
 
   const handlePagination = () => {
-    console.log('handleP pagination triggered');
     if (
       loading?.pagination ||
       loading?.loading ||
@@ -73,13 +79,40 @@ const DeviceList = ({ navigation, route }) => {
     )
       return;
     if (pagination?.currentPage < pagination?.totalPages) {
-      console.log('Pagination run with ', search);
       fetchData({ page: Number(pagination?.currentPage) + 1, search });
     }
   };
 
   const handleCardPress = item => {
-    navigation.navigate('LoanInfo', { loanId: item?._id });
+    if (selectedIds.length > 0) {
+      toggleSelection(item?._id);
+    } else {
+      navigation.navigate('LoanInfo', { loanId: item?._id });
+    }
+  };
+
+  const toggleSelection = id => {
+    setSelectedIds(prev => {
+      if (prev.includes(id)) {
+        return prev.filter(i => i !== id);
+      }
+      return [...prev, id];
+    });
+  };
+
+  const handleLongPress = item => {
+    if (selectedIds.length === 0) {
+      toggleSelection(item?._id);
+    }
+  };
+
+  const handleBulkAction = actionThunk => {
+    if (selectedIds.length === 0) return;
+    dispatch(actionThunk({ loanIds: selectedIds }))
+      .unwrap()
+      .then(() => {
+        setSelectedIds([]);
+      });
   };
 
   const handleNavigation = () => {
@@ -108,7 +141,6 @@ const DeviceList = ({ navigation, route }) => {
       showToast('Select atleast one filter value');
       return;
     }
-    console.log('Loan filter -->', selectedFilterValue);
   };
 
   const filterSheetRef = useRef(null);
@@ -126,6 +158,10 @@ const DeviceList = ({ navigation, route }) => {
   };
   useEffect(() => {
     const backAction = () => {
+      if (selectedIds.length > 0) {
+        setSelectedIds([]);
+        return true;
+      }
       if (sheetOpen.filter) {
         handleDismiss(filterSheetRef);
         return true;
@@ -137,13 +173,63 @@ const DeviceList = ({ navigation, route }) => {
       backAction,
     );
     return () => backHandler.remove();
-  }, [sheetOpen]);
+  }, [sheetOpen, selectedIds, handleDismiss]);
+
+  const renderBulkActions = () => {
+    if (selectedIds.length === 0) return null;
+    return (
+      <View style={styles.bulkActionContainer}>
+        <Text style={styles.selectedCount}>{selectedIds.length} Selected</Text>
+        <View style={styles.actionRow}>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: COLORS.red }]}
+            onPress={() => handleBulkAction(lockDeviceBulkThunk)}
+          >
+            <Text style={styles.actionText}>Lock</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[styles.actionButton, { backgroundColor: COLORS.green }]}
+            onPress={() => handleBulkAction(unlockDeviceBulkThunk)}
+          >
+            <Text style={styles.actionText}>Unlock</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              { backgroundColor: COLORS.primary400 },
+            ]}
+            onPress={() => handleBulkAction(requestDeviceLocationBulkThunk)}
+          >
+            <Text style={styles.actionText}>Loc</Text>
+          </TouchableOpacity>
+          <TouchableOpacity
+            style={[
+              styles.actionButton,
+              { backgroundColor: COLORS.primary400 },
+            ]}
+            onPress={() => handleBulkAction(requestDeviceSimInfoBulkThunk)}
+          >
+            <Text style={styles.actionText}>SIM</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    );
+  };
 
   return (
     <MainView transparent={false}>
-      <CustomHeader title={route.params?.title} back />
+      <CustomHeader
+        title={
+          selectedIds.length > 0
+            ? `${selectedIds.length} Selected`
+            : route.params?.title
+        }
+        back
+        rightIcon={selectedIds.length > 0 && 'close'}
+        handleRightIcon={() => setSelectedIds([])}
+      />
 
-      {loanData?.length > 0 && (
+      {loanData?.length > 0 && selectedIds.length === 0 && (
         <SearchBox
           value={search}
           handleChange={setSearch}
@@ -155,31 +241,39 @@ const DeviceList = ({ navigation, route }) => {
       {loading?.loading || loading?.search ? (
         <Loader />
       ) : (
-        <FlatList
-          data={search ? searchData : loanData}
-          keyExtractor={(item, index) =>
-            item?._id ? `${item._id}-${index}` : index.toString()
-          }
-          renderItem={({ item }) => (
-            <LoanScreenCard item={item} onPress={() => handleCardPress(item)} />
-          )}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={loading?.refreshing}
-              onRefresh={onRefresh}
-            />
-          }
-          contentContainerStyle={
-            loanData?.length > 0
-              ? styles.contentContainerStyle
-              : styles.emptyContainerStyle
-          }
-          ListEmptyComponent={<Nodata custom onPress={handleNavigation} />}
-          ItemSeparatorComponent={<Seperator height={SIZES.height * 0.01} />}
-          onEndReached={handlePagination}
-          onEndReachedThreshold={0.1} // 10% of the visible length of the list from the bottom.
-        />
+        <View style={{ flex: 1 }}>
+          <FlatList
+            data={search ? searchData : loanData}
+            keyExtractor={(item, index) =>
+              item?._id ? `${item._id}-${index}` : index.toString()
+            }
+            renderItem={({ item }) => (
+              <LoanScreenCard
+                item={item}
+                onPress={() => handleCardPress(item)}
+                onLongPress={() => handleLongPress(item)}
+                selected={selectedIds.includes(item?._id)}
+              />
+            )}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={loading?.refreshing}
+                onRefresh={onRefresh}
+              />
+            }
+            contentContainerStyle={
+              loanData?.length > 0
+                ? styles.contentContainerStyle
+                : styles.emptyContainerStyle
+            }
+            ListEmptyComponent={<Nodata custom onPress={handleNavigation} />}
+            ItemSeparatorComponent={<Seperator height={SIZES.height * 0.01} />}
+            onEndReached={handlePagination}
+            onEndReachedThreshold={0.1}
+          />
+          {renderBulkActions()}
+        </View>
       )}
 
       <LoanSheet
@@ -202,8 +296,44 @@ const styles = StyleSheet.create({
   },
   contentContainerStyle: {
     paddingHorizontal: SIZES.width * 0.05,
+    paddingBottom: SIZES.height * 0.1,
   },
   emptyContainerStyle: {
     flex: 1,
+  },
+  bulkActionContainer: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: COLORS.lightBlack,
+    borderTopWidth: 1,
+    borderTopColor: COLORS.border,
+    padding: SIZES.width * 0.04,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    elevation: 10,
+  },
+  selectedCount: {
+    color: COLORS.white,
+    fontFamily: FONTS.bold,
+    fontSize: fontSize(16),
+  },
+  actionRow: {
+    flexDirection: 'row',
+    gap: SIZES.width * 0.02,
+  },
+  actionButton: {
+    paddingHorizontal: SIZES.width * 0.03,
+    paddingVertical: SIZES.height * 0.01,
+    borderRadius: 8,
+    minWidth: SIZES.width * 0.12,
+    alignItems: 'center',
+  },
+  actionText: {
+    color: COLORS.white,
+    fontFamily: FONTS.bold,
+    fontSize: fontSize(12),
   },
 });

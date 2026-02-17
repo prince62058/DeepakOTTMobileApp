@@ -21,6 +21,14 @@ class EMIReminderReceiver : BroadcastReceiver() {
                 // Automatically lock the device when EMI becomes overdue
                 android.util.Log.d("EMIReminderReceiver", "EMI is now overdue. Triggering device lock...")
                 
+                // Persist status for offline security
+                val sharedPref = context.getSharedPreferences("VLockerPrefs", Context.MODE_PRIVATE)
+                sharedPref.edit().apply {
+                    putString("last_status", "LOCKED")
+                    putString("lock_reason", "AUTO_LOCK_OVERDUE")
+                    apply()
+                }
+
                 // Start the main activity which will trigger kiosk mode
                 val launchIntent = Intent(context, MainActivity::class.java).apply {
                     addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)

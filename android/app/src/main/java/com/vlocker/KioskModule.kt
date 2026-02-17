@@ -657,6 +657,17 @@ class KioskModule(reactContext: ReactApplicationContext) : ReactContextBaseJavaM
     }
 
     @ReactMethod
+    fun getLockReason(promise: Promise) {
+        try {
+            val sharedPref = reactApplicationContext.getSharedPreferences("VLockerPrefs", Context.MODE_PRIVATE)
+            val reason = sharedPref.getString("lock_reason", null)
+            promise.resolve(reason)
+        } catch (e: Exception) {
+            promise.reject("ERROR", e.message)
+        }
+    }
+
+    @ReactMethod
     fun setApplicationHidden(packageName: String, hidden: Boolean, promise: Promise) {
         try {
             if (dpm.isDeviceOwnerApp(reactApplicationContext.packageName)) {

@@ -241,6 +241,36 @@ export const updateDevicePolicyBulkThunk = createAsyncThunk(
   },
 );
 
+export const requestDeviceLocationBulkThunk = createAsyncThunk(
+  'loan/requestDeviceLocationBulkThunk',
+  async ({ loanIds }, { dispatch, rejectWithValue }) => {
+    try {
+      const response = await postApi('customerLoan/bulk/location', { loanIds });
+      showToast('Bulk location request sent');
+      dispatch(getLoanListThunk({}));
+      return response.data;
+    } catch (error) {
+      showToast(error);
+      return rejectWithValue(error);
+    }
+  },
+);
+
+export const requestDeviceSimInfoBulkThunk = createAsyncThunk(
+  'loan/requestDeviceSimInfoBulkThunk',
+  async ({ loanIds }, { dispatch, rejectWithValue }) => {
+    try {
+      const response = await postApi('customerLoan/bulk/sim', { loanIds });
+      showToast('Bulk SIM info request sent');
+      dispatch(getLoanListThunk({}));
+      return response.data;
+    } catch (error) {
+      showToast(error);
+      return rejectWithValue(error);
+    }
+  },
+);
+
 export const getSimDetailsThunk = createAsyncThunk(
   'loan/getSimDetailsThunk',
   async ({ loanId }, { rejectWithValue }) => {
@@ -563,6 +593,28 @@ const loanSlice = createSlice({
         state.loading.loading = false;
       })
       .addCase(updateDevicePolicyBulkThunk.rejected, (state, action) => {
+        state.loading.loading = false;
+        state.error = action.payload;
+      })
+      // ---- requestDeviceLocationBulkThunk ----
+      .addCase(requestDeviceLocationBulkThunk.pending, state => {
+        state.loading.loading = true;
+      })
+      .addCase(requestDeviceLocationBulkThunk.fulfilled, state => {
+        state.loading.loading = false;
+      })
+      .addCase(requestDeviceLocationBulkThunk.rejected, (state, action) => {
+        state.loading.loading = false;
+        state.error = action.payload;
+      })
+      // ---- requestDeviceSimInfoBulkThunk ----
+      .addCase(requestDeviceSimInfoBulkThunk.pending, state => {
+        state.loading.loading = true;
+      })
+      .addCase(requestDeviceSimInfoBulkThunk.fulfilled, state => {
+        state.loading.loading = false;
+      })
+      .addCase(requestDeviceSimInfoBulkThunk.rejected, (state, action) => {
         state.loading.loading = false;
         state.error = action.payload;
       });

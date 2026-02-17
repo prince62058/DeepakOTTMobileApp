@@ -7,7 +7,7 @@ import { getStatusStyle } from '../../utils/getStyle';
 import { maskId } from '../../utils/formating/string';
 import { MEDIA_BASE_URL } from '../../services/axios/api';
 
-const LoanScreenCard = ({ item, onPress }) => {
+const LoanScreenCard = ({ item, onPress, onLongPress, selected }) => {
   const statusStyle = getStatusStyle(item?.loanStatus);
   console.log(
     'LoanCard:',
@@ -16,7 +16,14 @@ const LoanScreenCard = ({ item, onPress }) => {
   );
 
   return (
-    <Pressable style={styles.customView} onPress={onPress}>
+    <Pressable
+      style={[
+        styles.customView,
+        selected && { borderWidth: 2, borderColor: COLORS.primary400 },
+      ]}
+      onPress={onPress}
+      onLongPress={onLongPress}
+    >
       {/* Top Section */}
       <View
         style={[

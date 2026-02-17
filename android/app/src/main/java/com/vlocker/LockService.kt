@@ -294,27 +294,43 @@ class LockService : Service() {
 
     private fun handleOfflineStatus(sharedPref: SharedPreferences) {
         val cachedNextDue = sharedPref.getString("next_due_date", "")
+        val fallbackDueTimestamp = sharedPref.getLong("emi_due_date_timestamp", 0L)
+        val now = java.util.Date()
+        var shouldLock = false
+
+        // Check Priority 1: next_due_date (ISO string from API)
         if (!cachedNextDue.isNullOrEmpty()) {
             try {
-                // Parse ISO 8601 date
                 val sdf = java.text.SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss.SSS'Z'", java.util.Locale.US)
                 sdf.timeZone = java.util.TimeZone.getTimeZone("UTC")
                 val dueDate = sdf.parse(cachedNextDue)
-                val now = java.util.Date()
-
                 if (dueDate != null && now.after(dueDate)) {
-                    Log.w("LockService", "OFFLINE LOCK TRIGGERED: Current time $now is after due date $dueDate")
-                    enforceLock()
-                } else {
-                    Log.d("LockService", "Offline: Still within grace period. Next due: $cachedNextDue")
-                    applyCachedPolicy()
+                    Log.w("LockService", "OFFLINE LOCK TRIGGERED (API Cache): Due $dueDate")
+                    shouldLock = true
                 }
             } catch (e: Exception) {
                 Log.e("LockService", "Error parsing cached next_due_date: ${e.message}")
-                applyCachedPolicy()
             }
+        }
+
+        // Check Priority 2: emi_due_date_timestamp (Long from EMIReminderModule)
+        if (!shouldLock && fallbackDueTimestamp > 0) {
+            if (now.time > fallbackDueTimestamp) {
+                Log.w("LockService", "OFFLINE LOCK TRIGGERED (Local Alarm Cache): Due ${java.util.Date(fallbackDueTimestamp)}")
+                shouldLock = true
+            }
+        }
+
+        if (shouldLock) {
+            // Persist the status so it's sticky
+            sharedPref.edit().apply {
+                putString("last_status", "LOCKED")
+                putString("lock_reason", "AUTO_LOCK_OVERDUE")
+                apply()
+            }
+            enforceLock()
         } else {
-            Log.d("LockService", "Offline: No cached next_due_date found.")
+            Log.d("LockService", "Offline: Still within grace period or no due date found.")
             applyCachedPolicy()
         }
     }

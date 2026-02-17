@@ -241,9 +241,30 @@ const DeviceLockScreen = () => {
           }
         }
       } catch (error) {
-        console.error('Error fetching loan data (offline):', error);
-        // If error/offline, we still keep the screen red and locked.
-        // We could show a specific offline message if we want.
+        console.error('Error fetching loan data (offline/error):', error);
+        // OFFLINE FALLBACK: Read from Native SharedPreferences
+        if (KioskModule && KioskModule.getLockStatus) {
+          try {
+            const localStatus = await KioskModule.getLockStatus();
+            const localReason = await KioskModule.getLockReason();
+            console.log(
+              'DeviceLockScreen (Offline Fallback): Status:',
+              localStatus,
+              'Reason:',
+              localReason,
+            );
+
+            if (localStatus === 'LOCKED') {
+              setLockReason(localReason || 'AUTO_LOCK_OVERDUE');
+              // We don't have accurate daysOverdue offline easily, but we keep the red screen.
+              DeviceEventEmitter.emit('LOCK_STATUS_CHANGED', {
+                status: 'LOCKED',
+              });
+            }
+          } catch (e) {
+            console.error('Error reading local lock status:', e);
+          }
+        }
       } finally {
         setLoading(false);
       }

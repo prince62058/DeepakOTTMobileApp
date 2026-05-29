@@ -1,5 +1,5 @@
-import { Platform } from 'react-native'
-import { checkNotifications, requestNotifications, RESULTS } from 'react-native-permissions'
+import { Platform } from 'react-native';
+import { checkNotifications, requestNotifications, RESULTS } from 'react-native-permissions';
 
 const notificationPermission = async () => {
     try {
@@ -9,7 +9,7 @@ const notificationPermission = async () => {
 
             if (Platform.Version >= 33) {
                 const { status: currentStatus } = await checkNotifications();
-                // console.log('Notification permission status:', currentStatus);
+                console.log('Notification permission status:', currentStatus);
 
                 if (currentStatus === RESULTS.GRANTED) return true;
                 if (currentStatus === RESULTS.BLOCKED || currentStatus === RESULTS.UNAVAILABLE) return false;

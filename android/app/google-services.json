@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "298653386817",
-    "project_id": "v-locker-38acd",
-    "storage_bucket": "v-locker-38acd.firebasestorage.app"
+    "project_number": "1003927860467",
+    "project_id": "hr-management-84063",
+    "storage_bucket": "hr-management-84063.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:298653386817:android:d988853a4ab92a1fdd9ec0",
+        "mobilesdk_app_id": "1:1003927860467:android:e3ab5fa10d3029a35f3386",
         "android_client_info": {
-          "package_name": "com.vlocker"
+          "package_name": "com.deepakott"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyDtDsMLjb383-qKbB5hzGlGb_FDJ8OrYIo"
+          "current_key": "AIzaSyBGLj7ZAIpZ0kzYEp294dCDBFL4AD1xzQA"
         }
       ],
       "services": {

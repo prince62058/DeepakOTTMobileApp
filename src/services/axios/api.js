@@ -1,31 +1,59 @@
+/*
+    Centralized API Service using Axios
+    ------------------------------------
+    Why we use this:
+    - To avoid repeating axios setup (baseURL, headers, error handling) in every request.
+    - To keep all CRUD (GET, POST, PUT, DELETE) requests consistent and reusable.
+    - To automatically attach authentication tokens with every request.
+    - To handle common errors (401, 404, network issues) in one place.
+
+    Why it is necessary:
+    - In real projects, APIs are called from many different screens/components.
+    - Without a centralized service, you'd duplicate axios/fetch logic everywhere.
+    - This improves maintainability: if baseURL or headers change, update once here.
+    - Also makes debugging easier with request/response interceptors.
+
+    How it works:
+    - We create an axios instance (`api`) with baseURL, timeout, and default headers.
+    - Request Interceptor:
+        * Runs before each API call.
+        * Fetches secure token from Keychain.
+        * If token exists, attaches it as "Authorization: Bearer <token>" header.
+        * Adds metadata (startTime) for logging request duration.
+    - Response Interceptor:
+        * Runs after API response is received.
+        * Logs request duration (helpful for performance monitoring).
+        * Handles errors gracefully, returning a user-friendly message.
+    - CRUD Helper Functions:
+        * getApi   → calls api.get(endpoint, { params })
+        * postApi  → calls api.post(endpoint, data, { params, headers })
+        * putApi   → calls api.put(endpoint, data, { params, headers })
+        * deleteApi→ calls api.delete(endpoint, { params })
+    - Special handling for POST & PUT:
+        * Accepts `params` (query string).
+        * If `media=true`, automatically sets Content-Type to multipart/form-data 
+          (used for file/image/video uploads).
+*/
+
 import axios from 'axios';
-import { Platform } from 'react-native';
 import { getSecureItem } from '../storage/keychain';
 
-// Production URL
-// export const BASE_API_URL =
-//   Platform.OS === 'android'
-//     ? 'https://api.vlocker.in/api/'
-//     : 'https://api.vlocker.in/api/';
+import { Platform } from 'react-native';
 
-// Local URL (Uncomment when needed)
-// Production URL
-// export const BASE_API_URL = 'https://api.vlocker.in/api/';
+// For Physical Devices & Emulators: Use your machine's local IP address
+// You can find it by running 'ifconfig' (Mac/Linux) or 'ipconfig' (Windows)
+// const LOCAL_IP = '192.168.29.158'; 
+// const BASE_URL = Platform.select({
+//   android: `http://10.0.2.2:4555/api`, // Works for Android Emulator
+//   ios: `http://localhost:4555/api`,     // Works for iOS Simulator
+//   default: `http://${LOCAL_IP}:4555/api` // Fallback for physical devices
+// });
 
-// Local URL (Uncomment when needed)
-// Local URL (Uncomment when needed)
-export const BASE_API_URL = 'http://172.20.10.2:3005/api/';
+const BASE_URL = 'https://api.deepent.in/api';
 
-// ...
+export const api = axios.create({
+  baseURL: BASE_URL,
 
-// Production Media URL
-// export const MEDIA_BASE_URL = 'https://api.vlocker.in';
-
-// Local Media URL (Uncomment when needed)
-export const MEDIA_BASE_URL = 'http://172.20.10.2:3005';
-
-const api = axios.create({
-  baseURL: BASE_API_URL,
   timeout: 30 * 1000,
   headers: {
     'Content-Type': 'application/json',
@@ -44,55 +72,65 @@ api.interceptors.request.use(
 
 api.interceptors.response.use(
   response => {
-    const endTime = new Date();
-    response.duration = endTime - response.config.metadata.startTime;
-    console.log('API INTERCEPTORS RESPONSE ---> ', response);
+    const method = response.config.method?.toUpperCase();
+    const url = response.config.url;
+    const duration = Date.now() - response.config.metadata.startTime;
+    // console.groupCollapsed(
+    //     `%c🚀 API Response %c ${method} %c${url} %c(${duration}ms)`,
+    //     "color: white; background: #4CAF50; padding: 2px 6px; border-radius: 4px;",
+    //     "color: #2196F3; font-weight: bold;",
+    //     "color: #FF9800;",
+    //     "color: #9E9E9E;"
+    // )
+    // console.log("📦 Data:", response?.data)
+    // console.groupEnd()
+    // console.log(`API Response: ${response.config.method?.toUpperCase()} ${response.config.url} - ${duration}ms`, response?.data)
     return response;
   },
   error => {
-    const endTime = new Date();
-    const startTime = error.config?.metadata?.startTime;
-    const duration = startTime ? endTime - startTime : null;
-
-    if (error.response) {
-      error.response.duration = duration;
+    console.log(error?.response);
+    let errorMessage;
+    if (error.status === 404) {
+      errorMessage = 'Requested resource not found';
+    } else {
+      errorMessage =
+        error?.response?.data?.message ||
+        error?.response?.data?.error ||
+        error?.request?._response ||
+        error?.message ||
+        'Something went wrong. Please try again.';
     }
-
-    console.log(
-      'API INTERCEPTORS ERROR ---> ',
-      error.response || error.message,
-    );
-
-    const errorMessage =
-      error?.response?.data?.message ||
-      error?.response?.data?.error ||
-      error?.request?._response ||
-      error?.message ||
-      'Something went wrong. Please try again.';
-
     return Promise.reject(errorMessage);
   },
 );
 
+// ---------- API Helpers ----------
+
 export const getApi = async (endpoint, params) => {
   try {
-    return await api.get(endpoint, params);
+    return await api.get(endpoint, { params });
   } catch (error) {
     throw error;
   }
 };
 
-export const postApi = async (endpoint, data) => {
+export const postApi = async (endpoint, data, params, media = false) => {
   try {
-    return await api.post(endpoint, data);
+    return await api.post(endpoint, data, {
+      params,
+      headers: media ? { 'Content-Type': 'multipart/form-data' } : {},
+    });
   } catch (error) {
     throw error;
   }
 };
 
-export const putApi = async (endpoint, data) => {
+export const putApi = async (endpoint, data, params, media = false) => {
   try {
-    return await api.put(endpoint, data);
+    return await api.put(endpoint, data, {
+      params,
+      headers: media ? { 'Content-Type': 'multipart/form-data' } : {},
+    });
   } catch (error) {
     throw error;
   }
@@ -100,115 +138,8 @@ export const putApi = async (endpoint, data) => {
 
 export const deleteApi = async (endpoint, params) => {
   try {
-    return await api.delete(endpoint, params);
+    return await api.delete(endpoint, { params });
   } catch (error) {
     throw error;
   }
 };
-
-export const postLocationApi = async data => {
-  try {
-    return await api.post('/customerLoan/location', data);
-  } catch (error) {
-    throw error;
-  }
-};
-
-export const postMediaApi = async (endpoint, data) => {
-  try {
-    const token = await getSecureItem('USER_TOKEN');
-    let formData = new FormData();
-    for (let key in data) {
-      if (data[key] && typeof data[key] === 'object' && data[key].uri) {
-        console.log(`Appending file to FormData (POST): key=${key}`);
-        formData.append(key, {
-          uri: data[key].uri,
-          type: data[key].type || 'image/jpeg',
-          name: data[key].name || `upload_${Date.now()}.jpg`,
-        });
-      } else if (data[key] !== undefined && data[key] !== null) {
-        formData.append(key, String(data[key]));
-      }
-    }
-
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    const response = await fetch(`${BASE_API_URL}${endpoint}`, {
-      method: 'POST',
-      headers: headers,
-      body: formData,
-    });
-
-    const responseData = await response.json();
-    console.log('PostMediaApi status:', response.status);
-
-    if (!response.ok) {
-      const errorMessage =
-        responseData?.message || responseData?.error || 'Upload failed';
-      throw new Error(errorMessage);
-    }
-
-    return { data: responseData };
-  } catch (error) {
-    console.log('Post Media API Error:', error);
-    throw error;
-  }
-};
-
-export const putMediaApi = async (endpoint, data) => {
-  try {
-    const token = await getSecureItem('USER_TOKEN');
-    let formData = new FormData();
-    for (let key in data) {
-      if (data[key] && typeof data[key] === 'object' && data[key].uri) {
-        console.log(
-          `Appending file to FormData (PUT): key=${key} uri=${data[key].uri}`,
-        );
-        formData.append(key, {
-          uri: data[key].uri,
-          type: data[key].type || 'image/jpeg',
-          name: data[key].name || `upload_${Date.now()}.jpg`,
-        });
-      } else if (data[key] !== undefined && data[key] !== null) {
-        formData.append(key, String(data[key]));
-      }
-    }
-
-    const headers = {};
-    if (token) headers['Authorization'] = `Bearer ${token}`;
-
-    console.log(`Sending PUT Media to ${BASE_API_URL}${endpoint}`);
-
-    const response = await fetch(`${BASE_API_URL}${endpoint}`, {
-      method: 'PUT',
-      headers: headers,
-      body: formData,
-    });
-
-    const text = await response.text();
-    console.log('PutMediaApi raw status:', response.status);
-    console.log('PutMediaApi raw response:', text);
-
-    let responseData;
-    try {
-      responseData = JSON.parse(text);
-    } catch {
-      responseData = { message: text };
-    }
-
-    if (!response.ok) {
-      const errorMessage =
-        responseData?.message || responseData?.error || 'Upload failed';
-      throw new Error(errorMessage);
-    }
-
-    return { data: responseData };
-  } catch (error) {
-    console.log('Put Media API Error:', error);
-    throw error;
-  }
-};
-
-export { api };
-export default api;

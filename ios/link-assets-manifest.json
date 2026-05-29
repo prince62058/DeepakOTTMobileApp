@@ -2,28 +2,48 @@
   "migIndex": 1,
   "data": [
     {
-      "path": "src/assets/fonts/Rubik-Bold.ttf",
-      "sha1": "4aad5243cee047469b80f96a92714f2e88418785"
+      "path": "src/assets/fonts/RedRose-Bold.ttf",
+      "sha1": "72c67a3d869b07bfbaf54e0584fc663655947cf4"
     },
     {
-      "path": "src/assets/fonts/Rubik-ExtraBold.ttf",
-      "sha1": "98cc0f956b0ef647c14d9103cfb8af317c4a9b18"
+      "path": "src/assets/fonts/RedRose-Light.ttf",
+      "sha1": "d6f24db33e0f94877d45f441fca29de2b18cf897"
     },
     {
-      "path": "src/assets/fonts/Rubik-Light.ttf",
-      "sha1": "4e89f40b6b4938fd7e705960c74a0139ec12cae5"
+      "path": "src/assets/fonts/RedRose-Medium.ttf",
+      "sha1": "08007020b177c433649614091b1501b74c56802d"
     },
     {
-      "path": "src/assets/fonts/Rubik-Medium.ttf",
-      "sha1": "786b4465e48a9b0496800f1d607fd6d8fef8eb8c"
+      "path": "src/assets/fonts/RedRose-Regular.ttf",
+      "sha1": "f5ed0d3639622cf31d4087a230c46cbbaff0f96b"
     },
     {
-      "path": "src/assets/fonts/Rubik-Regular.ttf",
-      "sha1": "01247a7ea5dcb29e28d5fb9f6feb3eb72a1bc3b2"
+      "path": "src/assets/fonts/RedRose-SemiBold.ttf",
+      "sha1": "4d04635bfee70d208bc45a64d79bf3984964bb12"
     },
     {
-      "path": "src/assets/fonts/Rubik-SemiBold.ttf",
-      "sha1": "3ba0f03e9880cad05eb919df2e2d0884ca9c9999"
+      "path": "src/assets/fonts/Roboto-Black.ttf",
+      "sha1": "d1678489a8d5645f16486ec52d77b651ff0bf327"
+    },
+    {
+      "path": "src/assets/fonts/Roboto-Bold.ttf",
+      "sha1": "508c35dee818addce6cc6d1fb6e42f039da5a7cf"
+    },
+    {
+      "path": "src/assets/fonts/Roboto-ExtraBold.ttf",
+      "sha1": "3dbfd71b6fbcfbd8e7ee8a8dd033dc5aaad63249"
+    },
+    {
+      "path": "src/assets/fonts/Roboto-Medium.ttf",
+      "sha1": "fa5192203f85ddb667579e1bdf26f12098bb873b"
+    },
+    {
+      "path": "src/assets/fonts/Roboto-Regular.ttf",
+      "sha1": "3bff51436aa7eb995d84cfc592cc63e1316bb400"
+    },
+    {
+      "path": "src/assets/fonts/Roboto-SemiBold.ttf",
+      "sha1": "9ca139684fe902c8310dd82991648376ac9838db"
     }
   ]
 }

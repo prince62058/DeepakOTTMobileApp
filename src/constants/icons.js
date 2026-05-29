@@ -1,93 +1,115 @@
-const allCustomers = require("../assets/icons/allCustomers.png")
-const allLoans = require("../assets/icons/allLoans.png")
-const deactive = require("../assets/icons/deactive.png")
-const due = require("../assets/icons/due.png")
-const enrolled = require("../assets/icons/enrolled.png")
-const loans = require("../assets/icons/loans.png")
-const locked = require("../assets/icons/locked.png")
-const newLoans = require("../assets/icons/newLoans.png")
-const noActive = require("../assets/icons/noActive.png")
-const unlocked = require("../assets/icons/unlocked.png")
-const rightArrow = require("../assets/icons/rightArrow.png")
-const Search = require("../assets/icons/Search.png")
-const filter = require("../assets/icons/filter.png")
-const iphone = require("../assets/icons/iphone.png")
-const calendar = require("../assets/icons/calendar.png")
-const money = require("../assets/icons/money.png")
-const telephone = require("../assets/icons/telephone.png")
-const edit = require("../assets/icons/edit.png")
-const deleteIcon = require("../assets/icons/delete.png")
-const location = require("../assets/icons/location.png")
-const commission = require("../assets/icons/commission.png")
-const user = require("../assets/icons/user.png")
-const plus = require("../assets/icons/plus.png")
-const upload = require("../assets/icons/upload.png")
+const facebook = require('../assets/icons/facebook.png');
+const Check = require('../assets/icons/Check.png');
+const google = require('../assets/icons/google.png');
+const profile = require('../assets/icons/profile.png');
+const downArrow = require('../assets/icons/chevron-down.png');
+const upArrow = require('../assets/icons/chevron-up.png');
+const email = require('../assets/icons/mdi-light_email.png');
+const phone = require('../assets/icons/phone.png');
 
-//Profile Icons 
-const editProfile = require("../assets/icons/editProfile.png")
-const businessProfile = require("../assets/icons/businessProfile.png")
-const appLock = require("../assets/icons/appLock.png")
-const bankDetails = require("../assets/icons/bankDetails.png")
-const installationVdo = require("../assets/icons/installationVdo.png")
-const feedback = require("../assets/icons/feedback.png")
-const support = require("../assets/icons/support.png")
-const keyHistory = require("../assets/icons/keyHistory.png")
-const key = require("../assets/icons/key.png")
-const logout = require("../assets/icons/logout.png")
-const email = require("../assets/icons/email.png")
+//bottom tab
+const home = require('../assets/icons/home.png');
+const homeFill = require('../assets/icons/home-fill.png');
+const categories = require('../assets/icons/categories.png');
+const categoriesFill = require('../assets/icons/categories-fill.png');
+const wishlist = require('../assets/icons/wishlist.png');
+const wishlistFill = require('../assets/icons/wishlist-fill.png');
+const profilee = require('../assets/icons/profilee.png');
+const profileeFill = require('../assets/icons/profile-fill.png');
 
-const accounts = require("../assets/icons/accounts.png")
-const avatar = require("../assets/icons/avatar.png")
-const bank = require("../assets/icons/bank.png")
+//profile all icons
+const rightArrow = require('../assets/icons/chevron-right.png');
+const wallet = require('../assets/icons/wallet.png');
+const editProfile = require('../assets/icons/editProfile.png');
+const watchHistory = require('../assets/icons/watch-history.png');
+const rewardReferral = require('../assets/icons/reward-referral.png');
+const subscripation = require('../assets/icons/subscripation.png');
+const fqa = require('../assets/icons/fqa.png');
+const logout = require('../assets/icons/logout.png');
+const tearms = require('../assets/icons/tearms.png');
+const crown = require('../assets/icons/crown.png');
+const reword = require('../assets/icons/reword.png');
+const search = require('../assets/icons/search.png');
+const EditProfile = require('../assets/icons/edit-profile.png');
+const referal01 = require('../assets/icons/referal01.png');
+const referal02 = require('../assets/icons/referal02.png');
+const referal03 = require('../assets/icons/referal03.png');
+const coin = require('../assets/icons/coin.png');
+const bankProfile = require('../assets/icons/bank-profile.png');
+const bankBS = require('../assets/icons/bank-BS.png');
+const bank = require('../assets/icons/bank.png');
+const upi = require('../assets/icons/upi.png');
+const trash = require('../assets/icons/delete.png');
 
-const phoneoutline = require("../assets/icons/phone-outline.png")
-const globeoutline = require("../assets/icons/globe-outline.png")
-const emailoutline = require("../assets/icons/email-outline.png")
-const clockoutline = require("../assets/icons/clock-outline.png")
-const calendar_red = require("../assets/icons/calendar_red.png")
+
+//Home icons 
+const bellIcon = require('../assets/icons/bell-icon.png');
+const homeSearch = require('../assets/icons/home_search.png');
+const play = require('../assets/icons/play.png');
+const plus = require('../assets/icons/plus.png');
+const share = require('../assets/icons/Share.png');
+const like = require('../assets/icons/like.png');
+const add = require('../assets/icons/add.png');
+const checkIcon = require('../assets/icons/chechIcon.png');
+
+//categories 
+const webSeries = require('../assets/icons/webseries.png');
+const movie = require('../assets/icons/movie.png');
+const withdrow = require('../assets/icons/withdrow.png');
+const play02 = require('../assets/icons/play02.png');
+
+const rattingFilled = require('../assets/icons/ratting-fill.png');
 
 export default {
-    allCustomers,
-    allLoans,
-    deactive,
-    due,
-    enrolled,
-    loans,
-    locked,
-    newLoans,
-    noActive,
-    unlocked,
-    rightArrow,
-    Search,
-    filter,
-    iphone,
-    calendar,
-    money,
-    telephone,
-    commission,
-    deleteIcon,
-    edit,
-    location,
-    user,
-    plus,
-    upload,
-    editProfile,
-    businessProfile,
-    appLock,
-    bankDetails,
-    installationVdo,
-    feedback,
-    key,
-    keyHistory,
-    support,
-    logout,
+    facebook,
+    Check,
+    google,
+    profile,
+    downArrow,
+    upArrow,
     email,
-    accounts,
-    avatar,
+    phone,
+    home,
+    homeFill,
+    categories,
+    categoriesFill,
+    wishlist,
+    wishlistFill,
+    profilee,
+    profileeFill,
+    rightArrow,
+    editProfile,
+    EditProfile,
+    coin,
+    referal01,
+    referal02,
+    referal03,
+    wallet,
+    watchHistory,
+    fqa,
+    logout,
+    tearms,
+    subscripation,
+    rewardReferral,
+    crown,
+    reword,
+    search,
+    bellIcon,
+    homeSearch,
+    play,
+    plus,
+    share,
+    like,
+    add,
+    checkIcon,
+    movie,
+    webSeries,
+    withdrow,
+    play02,
     bank,
-    phoneoutline,
-    emailoutline,
-    globeoutline,
-    clockoutline,
-    calendar_red
+    bankBS,
+    bankProfile,
+    upi,
+    trash,
+    rattingFilled
 }

@@ -1,121 +1,120 @@
-import {
-    Dimensions
-} from 'react-native';
-const {
-    width,
-    height
-} = Dimensions.get('window');
+import { Dimensions } from 'react-native';
+import { scale, verticalScale, fontSize } from '../utils/responsive/fonts';
 
-export const COLORS = {
-    border: '#4B4B4B',
-    borderLight: '#686868',
-    // Primary
-    // primary: '#3930D7',
-    primary: '#3930D7',
-
-    primary300: '#7872E4',
-    primary400: '#5951DD',
-
-    white: '#FFFFFF',
-    headingText: '#F8F9FB',
-    // black
-    black: '#000000',
-    lightBlack: '#151515',
-    sky: '#559EF0',
-
-    // blue
-    blue: '#1C4C9C',
-    b1: '#3B82F6',
-    b2: '#011E4E',
-
-    //yellow
-    yellow: '#A06706',
-    y1: '#F59E0B',
-    y2: '#432B01',
-
-    //red
-    red: '#A52424',
-    r1: '#EF4444',
-    r2: '#4D0000',
-    primaryred: '#FF0000',
-
-    //purple
-    purple: '#5C38AD',
-    p1: '#8B5CF6',
-    p2: '#210B52',
-
-    //linear gradient colors
-    lg01: '#14B8A6',
-    lg11: '#002C27',
-
-    lg02: '#04453E',
-    lg12: '#001D1A',
-
-    lg03: '#4ADE80',
-    lg13: '#042410',
-
-    lg04: '#6366F1',
-    lg14: '#0D0E3F',
-
-    lg05: '#F97316',
-    lg15: '#733306',
-
-    lg06: '#6B7280',
-    lg16: '#16171A',
-
-    green: '#008000',
-
-};
+const { width, height } = Dimensions.get('window');
 
 export const SIZES = {
-    // app dimensions
-    width, //360
-    height, //800
+  // Full dimensions
+  width, // e.g. 360
+  height, // e.g. 800
 
-    radius: width * 0.032, //12
-    radius01: width * 0.024, //8
+  // Font sizes (8 - 24 px)
+  w0: fontSize(8),
+  w1: fontSize(9),
+  w2: fontSize(10),
+  w3: fontSize(11),
+  w4: fontSize(12),
+  w5: fontSize(13),
+  w6: fontSize(14),
+  w7: fontSize(15),
+  w8: fontSize(16),
+  w9: fontSize(17),
+  w10: fontSize(18),
+  w11: fontSize(19),
+  w12: fontSize(20),
+  w13: fontSize(21),
+  w14: fontSize(22),
+  w15: fontSize(23),
+  w16: fontSize(24),
 
+  // Larger sizes
+  w17: fontSize(26),
+  w18: fontSize(32),
 
-    // font sizes
-    largeText: width * 0.083, //32
-    h1: width * 0.062, // ~22
-    h2: width * 0.052, // ~20
-    h3: width * 0.042, // ~16
-    h0: width * 0.045, //~18
-    h4: width * 0.0378, // ~14
-    h5: width * 0.034, // ~12
-    h6: width * 0.0299, //~10
+  lgHeight: verticalScale(24),
+  h0: verticalScale(22),
+  h1: verticalScale(20),
+  h2: verticalScale(18),
+  h3: verticalScale(16),
+  h4: verticalScale(14),
+  h5: verticalScale(12),
+  h6: verticalScale(10),
 
-    body0: height * 0.03, // approx24
-    body1: height * 0.0276, // approx 22 on 800px height
-    body2: height * 0.025, // approx 20
-    body3: height * 0.02, // approx 16
-    body4: height * 0.0176, // approx 14
-    body5: height * 0.015, // approx 12
-    body6: height * 0.0125, //approx 10
+  // Spacing
+  separator: verticalScale(8),
+};
+export const COLORS = {
+  theme: 'light',
+  barStyle: 'dark-content',
+  primary: '#FF3C00',
+  separator: '#E0E4E7',
+
+  white: '#FFFFFF',
+  black: '#000000',
+
+  lightBlack: '#1E1E1E',
+  error: '#F95555',
+
+  // Linear Gradient
+  p1: '#FC0000',
+  p2: '#F6960E',
+
+  //Border Linear Gradient
+  // bp1: '#A787FF',
+  // bp2: '#4F1ED8',
+
+  //gray
+  gray800: '#33333300',
+  gray700: '#222222',
+  // gray600: '#666666',
+  // gray500: '#344054',
+  gray400: '#979797', //gray2
+  gray300: '#CCCCCC',
+  gray200: '#C5C6CC',
+  gray100: '#CECECE',
+  gray50: '#C4C4C4',
+  // gray25: '#fcfcfc',
+  // gray15: '#F4F6F9',
+
+  red: '#FF383C',
+  green: '#34C759',
+  darkGreen: '#051409',
+};
+export const FONTS = {
+  //Font family Of RedRose
+  Bold: 'RedRose-Bold', //700
+  SemiBold: 'RedRose-SemiBold', //600
+  Medium: 'RedRose-Medium', //500
+  Regular: 'RedRose-Regular', //400
+  light: 'RedRose-Light', //300
+
+  //Font family Of Roboto
+  black: 'Roboto-Black', //900
+  exterBold: 'Roboto-ExtraBold', //800
+  bold: 'Roboto-Bold', //700
+  semiBold: 'Roboto-SemiBold', //600
+  medium: 'Roboto-Medium', //500
+  regular: 'Roboto-Regular', //400
+
+  //Font family Of Poppins
+  PoppinsBold: 'Poppins-Bold', //700
+  PoppinsSemiBold: 'Poppins-SemiBold', //600
+  PoppinsMedium: 'Poppins-Medium', //500
+  PoppinsRegular: 'Poppins-Regular', //400
+};
+export const CURRENCY = {
+  INR: '₹',
+  USD: '$',
+  EUR: '€',
+  GBP: '£',
+  JPY: '¥',
+  CNY: '¥',
 };
 
-export const FONTS = {
-    extraBold: 'Rubik-ExtraBold',
-    bold: 'Rubik-Bold',
-    semiBold: 'Rubik-SemiBold',
-    medium: 'Rubik-Medium',
-    regular: 'Rubik-Regular',
-    light: 'Rubik-Light',
-}
-
 export const darkTheme = {
-    backgroundColor: COLORS.main,
+  backgroundColor: COLORS.white,
 };
 
 export const lightTheme = {
-    backgroundColor: COLORS.white,
+  backgroundColor: COLORS.black,
 };
-
-const appTheme = {
-    COLORS,
-    SIZES,
-    FONTS
-};
-
-export default appTheme;

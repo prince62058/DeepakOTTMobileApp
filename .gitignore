@@ -20,7 +20,7 @@ DerivedData
 *.hmap
 *.ipa
 *.xcuserstate
-**/.xcode.env.local
+# **/.xcode.env.local
 
 # Android/IntelliJ
 #
@@ -31,7 +31,7 @@ local.properties
 *.iml
 *.hprof
 .cxx/
-.keystore
+*.keystore
 !debug.keystore
 .kotlin/
 
@@ -73,3 +73,6 @@ yarn-error.log
 !.yarn/releases
 !.yarn/sdks
 !.yarn/versions
+
+
+.git-aman

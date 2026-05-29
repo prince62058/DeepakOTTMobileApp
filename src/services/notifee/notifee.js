@@ -2,90 +2,48 @@ import notifee, {
   AndroidImportance,
   AndroidVisibility,
   EventType,
-  AuthorizationStatus,
 } from '@notifee/react-native';
 
-export async function createNotification(message, fullScreen = false) {
+/**
+ * Create and display a custom local notification.
+ */
+export async function createDefaultChannel() {
+  return await notifee.createChannel({
+    id: 'default',
+    name: 'General Notifications',
+    importance: AndroidImportance.HIGH,
+    visibility: AndroidVisibility.PUBLIC,
+  });
+}
+
+/**
+ * Create and display a custom local notification.
+ */
+export async function createNotification(message) {
   try {
     await notifee.requestPermission({ alert: true, badge: true, sound: true });
 
-    const channelId = await notifee.createChannel({
-      id: 'default',
-      name: 'General Notifications',
-      importance: AndroidImportance.HIGH,
-      visibility: AndroidVisibility.PUBLIC,
-    });
+    const channelId = await createDefaultChannel();
 
     const id = message?.messageId || `msg_${Date.now()}`;
-    const title = message?.data?.title || 'New Notification';
-    const body = message?.data?.body || 'You have a new notification';
-
-    const androidConfig = {
-      channelId,
-      smallIcon: 'ic_launcher',
-      pressAction: { id: 'default' },
-    };
-
-    if (fullScreen) {
-      androidConfig.fullScreenAction = {
-        id: 'default',
-        launchActivity: 'default',
-      };
-      androidConfig.category = 'alarm'; // Helps with priority
-      androidConfig.importance = AndroidImportance.HIGH;
-    }
+    const title = message?.notification?.title || 'New Notification';
+    const body = message?.notification?.body || 'You have a new message';
 
     await notifee.displayNotification({
       id,
       title,
       body,
       badge: 5,
-      android: androidConfig,
+      android: {
+        channelId,
+        smallIcon: 'ic_launcher',
+        pressAction: { id: 'default' },
+      },
       ios: { categoryId: 'default' },
     });
   } catch (error) {
-    // console.log('Error showing notification:', error)
+    console.log('Error showing notification:', error);
   }
-}
-
-export async function setupNotificationListeners() {
-  notifee.onForegroundEvent(async ({ type, detail }) => {
-    if (type === EventType.PRESS) {
-      console.log('Foreground notification pressed:', detail.notification);
-      await clearBadge();
-    } else if (type === EventType.DISMISSED) {
-      console.log('Foreground notification dismissed:', detail.notification);
-    } else {
-      await updateBadgeCount();
-    }
-  });
-  notifee.onBackgroundEvent(async ({ type, detail }) => {
-    if (type === EventType.PRESS) {
-      console.log('Background notification pressed:', detail.notification?.id);
-      await clearBadge();
-    } else if (type === EventType.DISMISSED) {
-      console.log(
-        'Background notification dismissed:',
-        detail.notification?.id,
-      );
-    } else {
-      await updateBadgeCount();
-    }
-  });
-}
-
-// Returns true/false based on OS-level notification settings
-export async function areNotificationsEnabled() {
-  const settings = await notifee.getNotificationSettings();
-
-  return (
-    settings.authorizationStatus === AuthorizationStatus.AUTHORIZED ||
-    settings.authorizationStatus === AuthorizationStatus.PROVISIONAL
-  );
-}
-
-export async function openNotificationSettings() {
-  await notifee.openNotificationSettings();
 }
 
 /**
@@ -124,6 +82,41 @@ export async function getDisplayedNotifications() {
   }
 }
 
+/**
+ * Setup both foreground and background notification listeners
+ * Call this once in index.js
+ */
+export async function setupNotificationListeners() {
+  // Foreground events
+  notifee.onForegroundEvent(async ({ type, detail }) => {
+    if (type === EventType.PRESS) {
+      console.log('Foreground notification pressed:', detail.notification);
+      // Optional: reset badge if message is opened
+      await clearBadge();
+    } else if (type === EventType.DISMISSED) {
+      console.log('Foreground notification dismissed:', detail.notification);
+    } else {
+      // For new notifications
+      await updateBadgeCount();
+    }
+  });
+
+  // Background events
+  notifee.onBackgroundEvent(async ({ type, detail }) => {
+    if (type === EventType.PRESS) {
+      console.log('Background notification pressed:', detail.notification?.id);
+      await clearBadge(); // User opened notification, reset badge
+    } else if (type === EventType.DISMISSED) {
+      console.log(
+        'Background notification dismissed:',
+        detail.notification?.id,
+      );
+    } else {
+      await updateBadgeCount(); // New notification received
+    }
+  });
+}
+
 // Set badge count
 export async function updateBadgeCount() {
   try {
@@ -144,6 +137,7 @@ export async function setUnreadBadge(count) {
   }
 }
 
+// Clear badge count when opening the app or reading messages
 async function clearBadge() {
   try {
     await notifee.setBadgeCount(0);

@@ -1,0 +1,160 @@
+import { StyleSheet } from 'react-native';
+import { COLORS, FONTS, SIZES } from '../../constants';
+
+export default StyleSheet.create({
+  mainStyle: {
+    // width: SIZES.width * 0.9,
+    // alignSelf: 'center',
+    flex: 1,
+    paddingHorizontal: SIZES.width * 0.05,
+  },
+  card: {
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderRadius: 8,
+    marginTop: SIZES.height * 0.02,
+    borderColor: COLORS.gray400,
+    backgroundColor: COLORS.lightBlack,
+    paddingVertical: SIZES.height * 0.02,
+    paddingHorizontal: SIZES.width * 0.05,
+  },
+  row: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    // justifyContent: 'space-between',
+    gap: SIZES.width * 0.02,
+  },
+  text: {
+    color: COLORS.gray400,
+    fontFamily: FONTS.Regular,
+    fontSize: SIZES.w10,
+    textAlign: 'center',
+  },
+  textBold: {
+    color: COLORS.white,
+    fontFamily: FONTS.semiBold,
+    fontSize: SIZES.width * 0.055,
+    flexShrink: 1,
+  },
+  cardView: {
+    marginTop: SIZES.height * 0.015,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 1,
+    borderRadius: 6,
+    borderColor: COLORS.gray400,
+    backgroundColor: COLORS.lightBlack,
+    paddingVertical: SIZES.height * 0.01,
+  },
+  icon: {
+    width: SIZES.width * 0.05,
+    height: SIZES.width * 0.05,
+    resizeMode: 'contain',
+    marginBottom: SIZES.height * 0.008,
+  },
+  boldText: {
+    color: COLORS.white,
+    fontFamily: FONTS.Bold,
+    fontSize: SIZES.w6,
+  },
+  heading: {
+    marginTop: SIZES.height * 0.03,
+    color: COLORS.white,
+    fontFamily: FONTS.Bold,
+    fontSize: SIZES.w10,
+  },
+  /* Transaction History Styles */
+  historyRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    backgroundColor: COLORS.lightBlack,
+    marginTop: SIZES.height * 0.006,
+    borderRadius: 6,
+    paddingVertical: SIZES.height * 0.013,
+    paddingHorizontal: SIZES.width * 0.04,
+  },
+  leftRow: {
+    flexDirection: 'row',
+    // alignItems: 'center',
+    gap: SIZES.width * 0.03,
+    flexShrink: 1,
+  },
+  image: {
+    width: SIZES.width * 0.09,
+    height: SIZES.width * 0.09,
+    resizeMode: 'contain',
+  },
+  historyTitle: {
+    color: COLORS.white,
+    fontFamily: FONTS.regular,
+    fontSize: SIZES.w4,
+    marginBottom: 1,
+  },
+  historyTime: {
+    color: COLORS.gray400,
+    fontFamily: FONTS.Regular,
+    fontSize: SIZES.w3,
+  },
+  amount: {
+    fontFamily: FONTS.Bold,
+    fontSize: SIZES.w6,
+    color: COLORS.white,
+    // flexShrink: 1,
+    textAlign: 'right',
+  },
+  greenCard: {
+    marginTop: SIZES.height * 0.02,
+    borderRadius: SIZES.w4,
+    borderColor: COLORS.green,
+    borderWidth: 1,
+    backgroundColor: '#0A1A0A', // Deep dark green for premium feel
+    padding: SIZES.width * 0.04,
+    paddingBottom: SIZES.height * 0.02,
+  },
+  rewardHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: SIZES.height * 0.015,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(0, 255, 0, 0.2)',
+    paddingBottom: SIZES.height * 0.01,
+  },
+  rewardHeaderText: {
+    color: COLORS.green,
+    fontFamily: FONTS.Bold,
+    fontSize: SIZES.w5,
+    marginLeft: SIZES.width * 0.02,
+  },
+  statsContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: SIZES.height * 0.015,
+  },
+  statItem: {
+    flex: 1,
+  },
+  statLabel: {
+    color: COLORS.gray400,
+    fontFamily: FONTS.Regular,
+    fontSize: SIZES.w3,
+    marginBottom: 2,
+  },
+  statValue: {
+    color: COLORS.white,
+    fontFamily: FONTS.Bold,
+    fontSize: SIZES.w5,
+  },
+  statValueGreen: {
+    color: COLORS.green,
+    fontFamily: FONTS.Bold,
+    fontSize: SIZES.w5,
+  },
+  normalText: {
+    fontFamily: FONTS.regular,
+    fontSize: SIZES.w4,
+    color: COLORS.gray300,
+    lineHeight: 20,
+    marginTop: 4,
+  },
+});

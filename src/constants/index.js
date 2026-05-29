@@ -1,22 +1,14 @@
-// import constants from "./constants";
-import appTheme, { COLORS, FONTS, SIZES, darkTheme, lightTheme } from "./theme";
-
-import icons from "./icons";
-import data from "./data";
-import images from "./images";
-import lottie from "./lottie";
-
+import theme, {COLORS, SIZES, FONTS, lightTheme, darkTheme} from './theme';
+import images from './images';
+import icons from './icons';
 
 export {
-    COLORS,
-    images,
-    icons,
-    data,
-    lottie,
-    appTheme,
-    SIZES,
-    FONTS,
-    darkTheme,
-    lightTheme
-}
-
+  theme,
+  COLORS,
+  SIZES,
+  FONTS,
+  images,
+  icons,
+  lightTheme,
+  darkTheme,
+};

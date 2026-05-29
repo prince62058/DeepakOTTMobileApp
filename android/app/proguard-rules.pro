@@ -8,11 +8,3 @@
 #   http://developer.android.com/guide/developing/tools/proguard.html
 
 # Add any project specific keep options here:
-
-# Keep your BuildConfig class (for react-native-config environment variables)
-#-keep class com.vlocker.BuildConfig { *; }
-
-# If you're using react-native-config's annotations
-#-keep class com.vlocker.BuildConfig { @com.facebook.proguard.annotations.DoNotStrip *; }
-
--keep class com.vlocker.MyDeviceAdminReceiver { *; }

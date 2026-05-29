@@ -1,39 +1,40 @@
-import React, { useEffect } from 'react';
-import { StyleSheet, View, Text } from 'react-native';
-import { Provider } from 'react-redux';
-import AppNavigator from './src/utils/AppNavigator';
-import { store } from './src/redux/store';
-import DeviceLockService from './src/services/DeviceLockService';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
-import { BottomSheetModalProvider } from '@gorhom/bottom-sheet';
-import LocationService from './src/services/LocationService';
+/**
+ * Sample React Native App
+ * https://github.com/facebook/react-native
+ *
+ * @format
+ */
 
-const App = () => {
-  useEffect(() => {
-    // Start global lock service
-    DeviceLockService.startLockService();
+import { NewAppScreen } from '@react-native/new-app-screen';
+import { StatusBar, StyleSheet, useColorScheme, View } from 'react-native';
+import {
+  SafeAreaProvider,
+  useSafeAreaInsets,
+} from 'react-native-safe-area-context';
 
-    // Start background location service (Placeholder for now)
-    // console.log("Background Location Service Initialized");
-    LocationService.init();
-    
-    return () => {
-       DeviceLockService.stopLockService();
-    };
-  }, []);
+function App() {
+  const isDarkMode = useColorScheme() === 'dark';
 
   return (
-    <GestureHandlerRootView style={{ flex: 1 }}>
-        <Provider store={store}>
-            <BottomSheetModalProvider>
-                <View style={styles.container}>
-                    <AppNavigator />
-                </View>
-            </BottomSheetModalProvider>
-        </Provider>
-    </GestureHandlerRootView>
+    <SafeAreaProvider>
+      <StatusBar barStyle={isDarkMode ? 'light-content' : 'dark-content'} />
+      <AppContent />
+    </SafeAreaProvider>
   );
-};
+}
+
+function AppContent() {
+  const safeAreaInsets = useSafeAreaInsets();
+
+  return (
+    <View style={styles.container}>
+      <NewAppScreen
+        templateFileName="App.tsx"
+        safeAreaInsets={safeAreaInsets}
+      />
+    </View>
+  );
+}
 
 const styles = StyleSheet.create({
   container: {

@@ -1,47 +1,23 @@
-import { Platform, ToastAndroid, Alert } from 'react-native';
+import { ToastAndroid } from "react-native";
 
-export const showToast = message => {
-  if (Platform.OS === 'android') {
-    const msgToCheck =
-      typeof message === 'string' ? message : 'Something went wrong';
-    ToastAndroid.show(msgToCheck, ToastAndroid.SHORT);
-  } else {
-    const msgToCheck =
-      typeof message === 'string' ? message : 'Something went wrong';
-    Alert.alert('', msgToCheck); // Simple popup in iOS
-  }
+export const showToast = (message) => {
+    ToastAndroid.show(message, ToastAndroid.SHORT);
 };
 
-export const showToastWithGravity = message => {
-  if (Platform.OS === 'android') {
-    const msgToCheck =
-      typeof message === 'string' ? message : 'Something went wrong';
+export const showToastWithGravity = (message) => {
     ToastAndroid.showWithGravity(
-      msgToCheck,
-      ToastAndroid.SHORT,
-      ToastAndroid.CENTER,
+        message,
+        ToastAndroid.SHORT,
+        ToastAndroid.CENTER
     );
-  } else {
-    const msgToCheck =
-      typeof message === 'string' ? message : 'Something went wrong';
-    Alert.alert('', msgToCheck); // iOS fallback
-  }
 };
 
-export const showToastWithGravityAndOffset = message => {
-  if (Platform.OS === 'android') {
-    const msgToCheck =
-      typeof message === 'string' ? message : 'Something went wrong';
+export const showToastWithGravityAndOffset = (message) => {
     ToastAndroid.showWithGravityAndOffset(
-      msgToCheck,
-      ToastAndroid.LONG,
-      ToastAndroid.BOTTOM,
-      25,
-      50,
+        message,
+        ToastAndroid.LONG,
+        ToastAndroid.BOTTOM,
+        25, // xOffset
+        50  // yOffset
     );
-  } else {
-    const msgToCheck =
-      typeof message === 'string' ? message : 'Something went wrong';
-    Alert.alert('', msgToCheck);
-  }
 };
